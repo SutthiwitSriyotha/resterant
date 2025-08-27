@@ -35,8 +35,17 @@ export default function MenuPage() {
     const fetchMenus = async () => {
       try {
         const res = await axios.get('/api/store/menu/list', { withCredentials: true });
+        if (res.status === 401) {
+          // ถ้าไม่ได้ login หรือ token หมดอายุ → ไปหน้า login
+          window.location.href = '/login';
+          return;
+        }
         setMenus(res.data.menus);
-      } catch (err) {
+      } catch (err: any) {
+        if (err.response?.status === 401) {
+          window.location.href = '/login';
+          return;
+        }
         console.error('Failed to fetch menus:', err);
       }
     };
@@ -63,7 +72,7 @@ export default function MenuPage() {
       name,
       price: parseFloat(price),
       description,
-      addOns: addOnsArray, // ✅ เพิ่ม Add-ons
+      addOns: addOnsArray,
     };
     if (base64Image) menuData.image = base64Image;
 
@@ -80,11 +89,7 @@ export default function MenuPage() {
           );
         }
       } else {
-        const res = await axios.post(
-          '/api/store/menu/save',
-          { menus: [menuData] },
-          { withCredentials: true }
-        );
+        const res = await axios.post('/api/store/menu/save', { menus: [menuData] }, { withCredentials: true });
         if (res.data.success) {
           const newMenu = {
             ...menuData,
@@ -94,7 +99,11 @@ export default function MenuPage() {
         }
       }
       resetForm();
-    } catch (err) {
+    } catch (err: any) {
+      if (err.response?.status === 401) {
+        window.location.href = '/login';
+        return;
+      }
       console.error('Error saving menu:', err);
     }
   };
@@ -122,13 +131,15 @@ export default function MenuPage() {
   const handleDelete = async (id?: string) => {
     if (!id || !confirm('ต้องการลบเมนูนี้หรือไม่?')) return;
     try {
-      const res = await axios.delete(`/api/store/menu/delete?id=${id}`, {
-        withCredentials: true,
-      });
+      const res = await axios.delete(`/api/store/menu/delete?id=${id}`, { withCredentials: true });
       if (res.data.success) {
         setMenus((prev) => prev.filter((menu) => menu._id !== id));
       }
-    } catch (err) {
+    } catch (err: any) {
+      if (err.response?.status === 401) {
+        window.location.href = '/login';
+        return;
+      }
       console.error('Failed to delete menu:', err);
     }
   };

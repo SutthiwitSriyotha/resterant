@@ -27,17 +27,19 @@ export default function DashboardPage() {
   const [hasTables, setHasTables] = useState(true);
   const [tableCount, setTableCount] = useState(1);
   const [savingTables, setSavingTables] = useState(false);
-  const [tableSaved, setTableSaved] = useState(false); // แสดงว่าบันทึกแล้ว
+  const [tableSaved, setTableSaved] = useState(false);
 
   useEffect(() => {
     async function fetchMenus() {
       try {
         const res = await fetch('/api/store/menu/list');
+        if (res.status === 401) {
+          window.location.href = '/login';
+          return;
+        }
         if (res.ok) {
           const data = await res.json();
           setMenus(data.menus || []);
-        } else {
-          console.error('Failed to fetch menus');
         }
       } catch (error) {
         console.error(error);
@@ -49,6 +51,10 @@ export default function DashboardPage() {
     async function fetchStoreInfo() {
       try {
         const res = await fetch('/api/store/info');
+        if (res.status === 401) {
+          window.location.href = '/login';
+          return;
+        }
         if (res.ok) {
           const data = await res.json();
           if (data.tableInfo) {
@@ -66,7 +72,6 @@ export default function DashboardPage() {
     fetchStoreInfo();
   }, []);
 
-  // บันทึกการตั้งค่าโต๊ะ
   const saveTableSettings = async () => {
     setSavingTables(true);
     try {
@@ -77,14 +82,10 @@ export default function DashboardPage() {
       });
       const data = await res.json();
       if (data.success) {
-        alert('บันทึกตั้งค่าโต๊ะเรียบร้อย');
         setTableSaved(true);
-      } else {
-        alert('บันทึกตั้งค่าโต๊ะล้มเหลว');
       }
     } catch (error) {
       console.error(error);
-      alert('เกิดข้อผิดพลาดในการบันทึก');
     }
     setSavingTables(false);
   };
@@ -212,7 +213,6 @@ export default function DashboardPage() {
               <p className="text-gray-800">ราคา: {menu.price} บาท</p>
               {menu.description && <p className="text-gray-600 mt-1">{menu.description}</p>}
 
-              {/* แสดง Add-ons */}
               {menu.addOns && menu.addOns.length > 0 && (
                 <div className="flex flex-wrap gap-2 mt-2">
                   {menu.addOns.map((a) => (

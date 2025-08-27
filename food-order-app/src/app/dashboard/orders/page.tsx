@@ -53,15 +53,16 @@ export default function DashboardOrdersPage() {
   const fetchOrders = async () => {
     setLoading(true);
     try {
-      const res = await axios.get('/api/order/list');
-      if (res.data.success) {
-        setOrders(res.data.orders);
-      } else {
-        alert('โหลดออเดอร์ล้มเหลว');
+      const res = await axios.get('/api/order/list', { withCredentials: true });
+      setOrders(res.data.orders || []);
+    } catch (err: any) {
+      if (err.response?.status === 401) {
+        // ถ้าไม่ได้ login → redirect ไปหน้า login
+        window.location.href = '/login';
+        return;
       }
-    } catch (error) {
       alert('เกิดข้อผิดพลาดในการโหลดออเดอร์');
-      console.error(error);
+      console.error(err);
     }
     setLoading(false);
   };
@@ -69,7 +70,7 @@ export default function DashboardOrdersPage() {
   useEffect(() => {
     fetchOrders();
   }, []);
-
+  
   // อัปเดตสถานะออเดอร์
   const updateStatus = async (orderId: string, newStatus: string) => {
   if (updatingOrderId) return;

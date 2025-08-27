@@ -151,13 +151,19 @@ export default function ProfilePage() {
 
             <button
               className="bg-red-600 text-white px-6 py-3 rounded-lg shadow-md hover:bg-red-700 transition font-semibold flex-1 min-w-[120px]"
-              onClick={() => {
-                document.cookie = 'token=; max-age=0; path=/';
-                window.location.href = '/login';
+              onClick={async () => {
+                try {
+                  await fetch("/api/auth/logout", { method: "POST" });
+                  window.location.href = "/login";
+                } catch (err) {
+                  console.error("Logout error", err);
+                  alert("ออกจากระบบไม่สำเร็จ");
+                }
               }}
             >
               ออกจากระบบ
             </button>
+
           </div>
         </div>
       </div>
