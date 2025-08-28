@@ -96,30 +96,37 @@ export default function DashboardPage() {
 
       {/* ลิงก์ไปจัดการเมนู/ออเดอร์ */}
       <div className="mb-8 flex items-center justify-between">
-        <div className="flex gap-4">
-          <Link
-            href="/dashboard/menu"
-            className="px-5 py-2 bg-blue-600 text-white rounded-lg shadow-md hover:bg-blue-700 transition"
-          >
-            จัดการเมนูอาหาร
-          </Link>
-          <Link
-            href="/dashboard/orders"
-            className="px-5 py-2 bg-green-600 text-white rounded-lg shadow-md hover:bg-green-700 transition"
-          >
-            จัดการออร์เดอร์
-          </Link>
-        </div>
-
-        <Link href="/dashboard/profile" className="flex flex-col items-center cursor-pointer group">
-          <div className="w-12 h-12 rounded-full bg-indigo-100 text-gray-600 flex items-center justify-center shadow-md group-hover:bg-indigo-200 transition">
-            <FaUserCircle className="w-8 h-8" />
-          </div>
-          <span className="text-sm text-gray-700 mt-1 group-hover:text-gray-800 transition font-medium">
-            โปรไฟล์
-          </span>
+      <div className="flex gap-4">
+        <Link
+          href="/dashboard/menu"
+          className="px-5 py-2 bg-blue-600 text-white rounded-lg shadow-md hover:bg-blue-700 transition"
+        >
+          จัดการเมนูอาหาร
+        </Link>
+        <Link
+          href="/dashboard/orders"
+          className="px-5 py-2 bg-green-600 text-white rounded-lg shadow-md hover:bg-green-700 transition"
+        >
+          จัดการออร์เดอร์
+        </Link>
+        <Link
+          href="/order"
+          className="px-5 py-2 bg-purple-600 text-white rounded-lg shadow-md hover:bg-purple-700 transition"
+        >
+          หน้าorderลูกค้า
         </Link>
       </div>
+
+      <Link href="/dashboard/profile" className="flex flex-col items-center cursor-pointer group">
+        <div className="w-12 h-12 rounded-full bg-indigo-100 text-gray-600 flex items-center justify-center shadow-md group-hover:bg-indigo-200 transition">
+          <FaUserCircle className="w-8 h-8" />
+        </div>
+        <span className="text-sm text-gray-700 mt-1 group-hover:text-gray-800 transition font-medium">
+          โปรไฟล์
+        </span>
+      </Link>
+    </div>
+
 
       {/* ตั้งค่าโต๊ะ */}
       <div className="mb-8 p-4 border border-gray-300 rounded-lg shadow-sm bg-gray-50">
