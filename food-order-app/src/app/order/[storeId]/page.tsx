@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import axios from 'axios';
 
 interface AddOn {
@@ -30,6 +30,9 @@ interface OrderItem {
 
 export default function OrderPage() {
   const router = useRouter();
+  const params = useParams();
+  const storeId = params.storeId as string;
+
   const [menus, setMenus] = useState<MenuItem[]>([]);
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [tableNumber, setTableNumber] = useState('');
@@ -44,7 +47,7 @@ export default function OrderPage() {
   useEffect(() => {
     async function fetchMenus() {
       try {
-        const res = await axios.get('/api/store/menu/list');
+        const res = await axios.get(`/api/store/${storeId}/menu/list`);
         setMenus(res.data.menus);
       } catch (error) {
         console.error('โหลดเมนูล้มเหลว', error);
@@ -53,7 +56,7 @@ export default function OrderPage() {
 
     async function fetchStoreInfo() {
       try {
-        const res = await axios.get('/api/store/info');
+        const res = await axios.get(`/api/store/${storeId}/info`);
         if (res.data.success && res.data.tableInfo) {
           setHasTables(res.data.tableInfo.hasTables);
           setMaxTableCount(res.data.tableInfo.tableCount || 0);
@@ -65,7 +68,7 @@ export default function OrderPage() {
 
     fetchMenus();
     fetchStoreInfo();
-  }, []);
+  }, [storeId]);
 
   const handleStartAdd = (menuId: string) => {
     const item = orderItems.find((i) => i.menuId === menuId);
@@ -76,13 +79,11 @@ export default function OrderPage() {
   };
 
   const handleToggleAddOn = (addon: AddOn) => {
-    setSelectedAddOns((prev) => {
-      if (prev.find((a) => a.id === addon.id)) {
-        return prev.filter((a) => a.id !== addon.id);
-      } else {
-        return [...prev, addon];
-      }
-    });
+    setSelectedAddOns((prev) =>
+      prev.find((a) => a.id === addon.id)
+        ? prev.filter((a) => a.id !== addon.id)
+        : [...prev, addon]
+    );
   };
 
   const handleConfirmAdd = () => {
@@ -130,7 +131,7 @@ export default function OrderPage() {
   }, 0);
 
   const handleSubmitOrder = async () => {
-    const identifier = tableNumber.trim(); // ใช้ identifier แทน tableNumber
+    const identifier = tableNumber.trim();
     if (!identifier) {
       alert('กรุณาเลือกหรือกรอกเลขที่โต๊ะ / ชื่อเล่น');
       return;
@@ -155,6 +156,7 @@ export default function OrderPage() {
             item.quantity,
         })),
         totalPrice,
+        storeId,
       };
 
       const res = await axios.post('/api/order/create', orderData);
@@ -176,6 +178,7 @@ export default function OrderPage() {
     <div className="max-w-5xl mx-auto p-6 bg-white min-h-screen text-black font-sans">
       <h1 className="text-2xl font-extrabold mb-8 select-none">🍽️ สั่งอาหาร</h1>
 
+      {/* เลือกโต๊ะ */}
       <div className="mb-8">
         <label htmlFor="tableNumber" className="block text-base font-semibold mb-2">
           เลือกโต๊ะ
@@ -205,7 +208,7 @@ export default function OrderPage() {
         )}
       </div>
 
-      {/* เมนูและออเดอร์ */}
+      {/* เมนู */}
       {addingMenuId ? (
         (() => {
           const menu = menus.find((m) => m._id === addingMenuId);
@@ -225,7 +228,6 @@ export default function OrderPage() {
                 <p className="max-w-xl text-center text-gray-700">{menu.description}</p>
               )}
 
-              {/* Add-ons */}
               {menu.addOns && menu.addOns.length > 0 && (
                 <div className="w-full max-w-md mt-4 space-y-2">
                   <p className="font-semibold mb-2">Add เพิ่มเติม</p>
@@ -394,7 +396,7 @@ export default function OrderPage() {
 
       <section className="max-w-md mx-auto mt-7">
         <button
-          onClick={() => router.push('/order/status')}
+          onClick={() => router.push(`/order/${storeId}/status`)}
           className="w-full bg-blue-500 text-white px-6 py-3 rounded-3xl font-semibold text-lg shadow hover:bg-blue-700 transition"
         >
           เช็คสถานะอาหาร

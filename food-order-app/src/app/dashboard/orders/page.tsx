@@ -113,7 +113,7 @@ export default function DashboardOrdersPage() {
   // กรองและจัดเรียงออเดอร์ 
 const filteredOrders = showPaidOrders
   ? filterByTimeRange(orders.filter((o) => o.status === 'paid'))
-  : orders.filter((o) => o.status !== 'paid');
+  : orders.filter((o) => !['paid'].includes(o.status));
 
 // 🟢 เปลี่ยนให้เก่าอยู่บน (earliest first)
 const sortedOrders = [...filteredOrders].sort(
@@ -165,11 +165,15 @@ const sortedOrders = [...filteredOrders].sort(
 
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
         <button
-          onClick={() => setShowPaidOrders((prev) => !prev)}
+          onClick={() => {
+            setShowPaidOrders((prev) => !prev); // เปลี่ยนสถานะดูออเดอร์
+            fetchOrders(); // ✅ รีเฟรชออเดอร์จาก API
+          }}
           className="px-5 py-2 rounded-md font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition"
         >
           {showPaidOrders ? 'ดูออเดอร์ที่ยังไม่เสร็จ' : 'ดูออเดอร์ที่เสร็จสิ้น'}
         </button>
+
 
         {showPaidOrders && (
           <select

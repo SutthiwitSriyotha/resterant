@@ -7,7 +7,8 @@ import { ObjectId } from 'mongodb';
 export async function GET(req: NextRequest) {
   try {
     const token = req.cookies.get('token')?.value;
-    if (!token) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+    if (!token)
+      return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET!);
     const storeId = (decoded as any).id;
@@ -21,6 +22,8 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      storeId: store._id.toString(), // ✅ เพิ่มให้ client ใช้ได้
+      name: store.name || null,      // (optional) เผื่อเอาไปแสดงชื่อร้าน
       tableInfo: store.tableInfo || { hasTables: false, tableCount: 0 },
     });
   } catch (err) {

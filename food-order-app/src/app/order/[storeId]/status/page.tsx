@@ -4,21 +4,11 @@ import { useState, useEffect } from 'react';
 import {
   FiCheckCircle, FiClock, FiBox, FiTruck, FiCheck,
 } from 'react-icons/fi';
+import { useParams } from 'next/navigation';
 import axios from 'axios';
 
-type AddOn = {
-  id: string;
-  name: string;
-  price: number;
-};
-
-type OrderItem = {
-  name: string;
-  quantity: number;
-  comment?: string;
-  addOns?: AddOn[];
-};
-
+type AddOn = { id: string; name: string; price: number; };
+type OrderItem = { name: string; quantity: number; comment?: string; addOns?: AddOn[]; };
 type OrderStatus = {
   _id: string;
   tableNumber?: string;
@@ -49,6 +39,7 @@ const getQueueTime = (queueNumber?: number) => {
 };
 
 export default function OrderStatusPage() {
+  const { storeId } = useParams();
   const [identifier, setIdentifier] = useState('');
   const [orders, setOrders] = useState<OrderStatus[]>([]);
   const [error, setError] = useState('');
@@ -59,7 +50,7 @@ export default function OrderStatusPage() {
   useEffect(() => {
     const fetchStoreInfo = async () => {
       try {
-        const res = await axios.get('/api/store/info');
+        const res = await axios.get(`/api/store/${storeId}/info`);
         if (res.data.success) {
           setHasTables(res.data.tableInfo.hasTables);
           setMaxTableCount(res.data.tableInfo.tableCount || 0);
@@ -69,7 +60,7 @@ export default function OrderStatusPage() {
       }
     };
     fetchStoreInfo();
-  }, []);
+  }, [storeId]);
 
   const fetchOrderStatus = async () => {
     if (!identifier.trim()) {
@@ -82,8 +73,8 @@ export default function OrderStatusPage() {
     setMessage('');
     try {
       const query = hasTables ? `table=${identifier.trim()}` : `customer=${identifier.trim()}`;
-      const res = await fetch(`/api/order/status?${query}`);
-      const data = await res.json();
+      const res = await axios.get(`/api/order/status?storeId=${storeId}&${query}`);
+      const data = res.data;
 
       if (data.success) {
         const filteredOrders: OrderStatus[] = data.orders.filter(
@@ -94,9 +85,7 @@ export default function OrderStatusPage() {
           setOrders([]);
           setError('ยังไม่มีออเดอร์ในขณะนี้');
         } else {
-          setOrders(
-            filteredOrders.sort((a, b) => (a.queueNumber ?? 0) - (b.queueNumber ?? 0))
-          );
+          setOrders(filteredOrders.sort((a, b) => (a.queueNumber ?? 0) - (b.queueNumber ?? 0)));
         }
       } else {
         setOrders([]);
@@ -110,12 +99,8 @@ export default function OrderStatusPage() {
 
   const callForBill = async (orderId: string) => {
     try {
-      const res = await fetch('/api/order/call-bill', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId }),
-      });
-      const data = await res.json();
+      const res = await axios.post(`/api/order/call-bill`, { storeId, orderId });
+      const data = res.data;
       if (data.success) {
         setMessage('คุณได้เรียกพนักงานมาเก็บค่าบริการแล้ว กรุณารอสักครู่ พนักงานกำลังมา');
         setOrders((prev) =>
