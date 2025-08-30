@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 import {
-  FiCheckCircle,FiClock,FiBox,FiTruck,FiDollarSign,FiCheck,FiTrash2,
+  FiCheckCircle, FiClock, FiBox, FiTruck, FiDollarSign, FiCheck, FiTrash2,
 } from 'react-icons/fi';
 
 type AddOn = {
@@ -19,11 +19,10 @@ type OrderItem = {
   addOns?: AddOn[];
 };
 
-
 type Order = {
   _id: string;
   tableNumber?: string;
-  customerName?: string; 
+  customerName?: string;
   items: OrderItem[];
   totalPrice: number;
   status: string;
@@ -47,7 +46,12 @@ export default function DashboardOrdersPage() {
   const [loading, setLoading] = useState(false);
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
   const [showPaidOrders, setShowPaidOrders] = useState(false);
+
+  // ฟิลเตอร์เวลา
   const [timeRange, setTimeRange] = useState<'day' | 'week' | 'month'>('day');
+  const [selectedDate, setSelectedDate] = useState<string>(''); 
+  const [startDate, setStartDate] = useState<string>(''); 
+  const [endDate, setEndDate] = useState<string>('');   
 
   // โหลดออเดอร์
   const fetchOrders = async () => {
@@ -57,7 +61,6 @@ export default function DashboardOrdersPage() {
       setOrders(res.data.orders || []);
     } catch (err: any) {
       if (err.response?.status === 401) {
-        // ถ้าไม่ได้ login → redirect ไปหน้า login
         window.location.href = '/login';
         return;
       }
@@ -70,31 +73,45 @@ export default function DashboardOrdersPage() {
   useEffect(() => {
     fetchOrders();
   }, []);
-  
+
   // อัปเดตสถานะออเดอร์
   const updateStatus = async (orderId: string, newStatus: string) => {
-  if (updatingOrderId) return;
-  setUpdatingOrderId(orderId);
-  try {
-    const res = await axios.put('/api/order/updateStatus', { orderId, status: newStatus });
-    if (res.data.success) {
-      fetchOrders(); // ✅ รีเฟรชข้อมูลรวม queueNumber ใหม่
-    } else {
-      alert('อัปเดตสถานะล้มเหลว');
+    if (updatingOrderId) return;
+    setUpdatingOrderId(orderId);
+    try {
+      const res = await axios.put('/api/order/updateStatus', { orderId, status: newStatus });
+      if (res.data.success) {
+        fetchOrders();
+      } else {
+        alert('อัปเดตสถานะล้มเหลว');
+      }
+    } catch (error) {
+      alert('เกิดข้อผิดพลาดในการอัปเดตสถานะ');
+      console.error(error);
     }
-  } catch (error) {
-    alert('เกิดข้อผิดพลาดในการอัปเดตสถานะ');
-    console.error(error);
-  }
-  setUpdatingOrderId(null);
-};
-
+    setUpdatingOrderId(null);
+  };
 
   // ฟิลเตอร์ช่วงเวลา
   const filterByTimeRange = (orders: Order[]) => {
     const now = new Date();
     return orders.filter((o) => {
       const orderDate = new Date(o.createdAt);
+
+      // ✅ ถ้าเลือกวันเดียว
+      if (selectedDate) {
+        const selected = new Date(selectedDate);
+        return orderDate.toDateString() === selected.toDateString();
+      }
+
+      // ✅ ถ้าเลือกช่วงวัน
+      if (startDate && endDate) {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        return orderDate >= start && orderDate <= end;
+      }
+
+      // ✅ ฟิลเตอร์ตามช่วงเวลา (day/week/month)
       if (timeRange === 'day') {
         return orderDate.toDateString() === now.toDateString();
       } else if (timeRange === 'week') {
@@ -110,18 +127,15 @@ export default function DashboardOrdersPage() {
     });
   };
 
-  // กรองและจัดเรียงออเดอร์ 
-const filteredOrders = showPaidOrders
-  ? filterByTimeRange(orders.filter((o) => o.status === 'paid'))
-  : orders.filter((o) => !['paid'].includes(o.status));
+  // กรองและจัดเรียงออเดอร์
+  const filteredOrders = showPaidOrders
+    ? filterByTimeRange(orders.filter((o) => o.status === 'paid'))
+    : orders.filter((o) => !['paid'].includes(o.status));
 
-// 🟢 เปลี่ยนให้เก่าอยู่บน (earliest first)
-const sortedOrders = [...filteredOrders].sort(
-  (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-);
+  const sortedOrders = [...filteredOrders].sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+  );
 
-
-  // สรุปยอดรวมและจำนวนออเดอร์
   const totalRevenue = sortedOrders.reduce((sum, o) => sum + o.totalPrice, 0);
   const totalCount = sortedOrders.length;
 
@@ -148,44 +162,94 @@ const sortedOrders = [...filteredOrders].sort(
   return (
     <div className="max-w-7xl mx-auto p-6 bg-white min-h-screen rounded-md shadow-md">
       <h1 className="text-4xl font-extrabold mb-8 text-gray-900 border-b border-gray-300 pb-4">
-        จัดการออเดอร์ร้านอาหาร
+        {showPaidOrders ? 'จัดการออเดอร์ร้านอาหารที่เสร็จสิ้นแล้ว' : 'จัดการออเดอร์ร้านอาหารที่ยังไม่เสร็จ'}
       </h1>
 
-      {/* ✅ กล่องแสดงจำนวนคิว */}
+
       {!showPaidOrders && (
         <div className="flex justify-end">
           <div className="bg-red-100 text-red-700 font-bold px-4 py-2 rounded-lg shadow">
-            {/* นับเฉพาะสถานะ active */}
             คิวที่เหลือ: {orders.filter(o => ['pending','accepted','preparing','finished','delivering'].includes(o.status)).length}
           </div>
         </div>
       )}
 
-
-
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
         <button
           onClick={() => {
-            setShowPaidOrders((prev) => !prev); // เปลี่ยนสถานะดูออเดอร์
-            fetchOrders(); // ✅ รีเฟรชออเดอร์จาก API
+            setShowPaidOrders((prev) => !prev);
+            fetchOrders();
           }}
           className="px-5 py-2 rounded-md font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition"
         >
           {showPaidOrders ? 'ดูออเดอร์ที่ยังไม่เสร็จ' : 'ดูออเดอร์ที่เสร็จสิ้น'}
         </button>
 
-
         {showPaidOrders && (
-          <select
-            value={timeRange}
-            onChange={(e) => setTimeRange(e.target.value as 'day' | 'week' | 'month')}
-            className="border border-gray-300 px-3 py-2 rounded-md text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition"
-          >
-            <option value="day">วันนี้</option>
-            <option value="week">สัปดาห์นี้</option>
-            <option value="month">เดือนนี้</option>
-          </select>
-        )}
+        <div className="flex flex-wrap items-center gap-4 bg-gray-50 p-4 rounded-md shadow-sm">
+          {/* ช่วงเวลาแบบ day/week/month */}
+          <div className="flex flex-col">
+            <label className="text-sm font-medium text-gray-600 mb-1">ช่วงเวลา</label>
+            <select
+              value={timeRange}
+              onChange={(e) => {
+                setSelectedDate('');
+                setStartDate('');
+                setEndDate('');
+                setTimeRange(e.target.value as 'day' | 'week' | 'month');
+              }}
+              className="border border-gray-300 px-3 py-2 rounded-md text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition"
+            >
+              <option value="day">วันนี้</option>
+              <option value="week">สัปดาห์นี้</option>
+              <option value="month">เดือนนี้</option>
+            </select>
+          </div>
+
+          {/* เลือกวันเดียว */}
+          <div className="flex flex-col">
+            <label className="text-sm font-medium text-gray-600 mb-1">วันเดียว</label>
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => {
+                setSelectedDate(e.target.value);
+                setStartDate('');
+                setEndDate('');
+              }}
+              className="border border-gray-300 px-3 py-2 rounded-md text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition"
+            />
+          </div>
+
+          {/* เลือกช่วงวัน */}
+          <div className="flex flex-col">
+            <label className="text-sm font-medium text-gray-600 mb-1">ช่วงวันที่</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => {
+                  setStartDate(e.target.value);
+                  setSelectedDate('');
+                }}
+                className="border border-gray-300 px-3 py-2 rounded-md text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition"
+              />
+              <span className="text-gray-500">ถึง</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => {
+                  setEndDate(e.target.value);
+                  setSelectedDate('');
+                }}
+                className="border border-gray-300 px-3 py-2 rounded-md text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+        
       </div>
 
       {showPaidOrders && (
@@ -231,7 +295,6 @@ const sortedOrders = [...filteredOrders].sort(
               key={order._id}
               className="bg-white rounded-lg shadow-md border border-gray-200 p-5 relative"
             >
-              
               <div className="flex justify-between items-start mb-4 flex-wrap gap-3">
                 <div>
                   <p className="text-lg font-semibold text-gray-900">
@@ -246,9 +309,6 @@ const sortedOrders = [...filteredOrders].sort(
                         : order.tableNumber || '-'}
                     </span>
                   </p>
-
-
-
                   <p className="text-sm text-gray-500">
                     สั่งเมื่อ: {new Date(order.createdAt).toLocaleString()}
                   </p>
@@ -266,7 +326,6 @@ const sortedOrders = [...filteredOrders].sort(
                       </span>
                     )}
                   </p>
-
                   <p className="text-sm mt-1 text-gray-700">
                     สถานะปัจจุบัน:{' '}
                     {showPaidOrders ? (
@@ -311,7 +370,6 @@ const sortedOrders = [...filteredOrders].sort(
                 ))}
               </ul>
 
-
               {!showPaidOrders && (
                 <div className="flex flex-wrap gap-3">
                   {STATUS_LIST.map((status) => {
@@ -338,7 +396,6 @@ const sortedOrders = [...filteredOrders].sort(
                 </div>
               )}
 
-              {/* ปุ่มลบออเดอร์ */}
               <button
                 onClick={() => deleteOrder(order._id)}
                 disabled={updatingOrderId === order._id}

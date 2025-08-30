@@ -32,7 +32,7 @@ const STATUS_LIST = [
 
 const getQueueTime = (queueNumber?: number) => {
   if (!queueNumber) return '';
-  if (queueNumber === 1) return 'กำลังทำอาหารของคุณ (รอประมาณ 5-15 นาที)';
+  if (queueNumber === 1) return 'คิวของคุณคือคิวล่าสุด (ใช้เวลาประมาณ 5-15 นาที)';
   const min = 5 + (queueNumber - 1) * 10;
   const max = 15 + (queueNumber - 1) * 10;
   return `รอคิวก่อนหน้า ${queueNumber - 1} คิว (รอประมาณ ${min}-${max} นาที)`;
@@ -125,7 +125,7 @@ export default function OrderStatusPage() {
             onChange={(e) => setIdentifier(e.target.value)}
             className="border border-gray-300 px-4 py-2 rounded-md flex-grow text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition"
           >
-            <option value="">-- เลือกโต๊ะ --</option>
+            <option value=""> เลือกโต๊ะของท่าน </option>
             {Array.from({ length: maxTableCount }, (_, i) => i + 1).map((num) => (
               <option key={num} value={num.toString()}>
                 โต๊ะ {num}
