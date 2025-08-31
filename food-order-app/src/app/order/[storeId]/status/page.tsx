@@ -1,14 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import {
-  FiCheckCircle, FiClock, FiBox, FiTruck, FiCheck,
-} from 'react-icons/fi';
+import { FiCheckCircle, FiClock, FiBox, FiTruck, FiCheck } from 'react-icons/fi';
 import { useParams } from 'next/navigation';
 import axios from 'axios';
 
-type AddOn = { id: string; name: string; price: number; };
-type OrderItem = { name: string; quantity: number; comment?: string; addOns?: AddOn[]; };
+
+type AddOn = { id: string; name: string; price: number };
+type OrderItem = { name: string; quantity: number; comment?: string; addOns?: AddOn[] };
 type OrderStatus = {
   _id: string;
   tableNumber?: string;
@@ -44,58 +43,77 @@ export default function OrderStatusPage() {
   const [orders, setOrders] = useState<OrderStatus[]>([]);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
-  const [hasTables, setHasTables] = useState(false);
-  const [maxTableCount, setMaxTableCount] = useState(0);
+  const [activeTables, setActiveTables] = useState<number[] | null>(null); // null = ร้านไม่มีโต๊ะ
 
+  // ดึงเลขโต๊ะที่มีออร์เดอร์จริง
   useEffect(() => {
-    const fetchStoreInfo = async () => {
+    const fetchActiveTables = async () => {
       try {
-        const res = await axios.get(`/api/store/${storeId}/info`);
+        const resInfo = await axios.get(`/api/store/${storeId}/info`);
+        const hasTables = resInfo.data.tableInfo.hasTables;
+
+        if (!hasTables) {
+          setActiveTables(null); // ร้านไม่มีโต๊ะ
+          return;
+        }
+
+        const res = await axios.get(`/api/store/${storeId}/orders/tables`);
         if (res.data.success) {
-          setHasTables(res.data.tableInfo.hasTables);
-          setMaxTableCount(res.data.tableInfo.tableCount || 0);
+          setActiveTables(res.data.tables); // โต๊ะที่มีออร์เดอร์
+        } else {
+          setActiveTables([]); // มีโต๊ะแต่ยังไม่มีออร์เดอร์
         }
       } catch (err) {
         console.error(err);
+        setActiveTables([]);
       }
     };
-    fetchStoreInfo();
+    fetchActiveTables();
   }, [storeId]);
 
   const fetchOrderStatus = async () => {
-    if (!identifier.trim()) {
-      setError(hasTables ? 'กรุณาเลือกเลขโต๊ะ' : 'กรุณากรอกชื่อผู้สั่ง');
-      setOrders([]);
-      setMessage('');
-      return;
-    }
-    setError('');
+  if (!identifier.trim()) {
+    setError(activeTables === null ? 'กรุณากรอกชื่อผู้สั่ง' : 'กรุณาเลือกโต๊ะ');
+    setOrders([]);
     setMessage('');
-    try {
-      const query = hasTables ? `table=${identifier.trim()}` : `customer=${identifier.trim()}`;
-      const res = await axios.get(`/api/order/status?storeId=${storeId}&${query}`);
-      const data = res.data;
+    return;
+  }
 
-      if (data.success) {
-        const filteredOrders: OrderStatus[] = data.orders.filter(
-          (o: OrderStatus) => o.status !== 'paid'
-        );
+  setError('');
+  setMessage('');
 
-        if (filteredOrders.length === 0) {
-          setOrders([]);
-          setError('ยังไม่มีออเดอร์ในขณะนี้');
-        } else {
-          setOrders(filteredOrders.sort((a, b) => (a.queueNumber ?? 0) - (b.queueNumber ?? 0)));
-        }
-      } else {
+  const query = activeTables === null ? `customer=${identifier.trim()}` : `table=${identifier.trim()}`;
+
+  try {
+    const res = await axios.get(`/api/order/status?storeId=${storeId}&${query}`);
+    const data = res.data;
+
+    if (data.success) {
+      const filteredOrders: OrderStatus[] = data.orders.filter((o: OrderStatus) => o.status !== 'paid');
+
+      if (filteredOrders.length === 0) {
         setOrders([]);
-        setError(data.message || 'ไม่พบออเดอร์');
+        setError('ยังไม่มีออเดอร์ในขณะนี้');
+      } else {
+        setOrders(filteredOrders.sort((a, b) => (a.queueNumber ?? 0) - (b.queueNumber ?? 0)));
       }
-    } catch {
+
+      // รีเฟรช activeTables ใหม่หลังตรวจสอบ
+      if (activeTables !== null) {
+        const resTables = await axios.get(`/api/store/${storeId}/orders/tables`);
+        if (resTables.data.success) setActiveTables(resTables.data.tables);
+        else setActiveTables([]);
+      }
+    } else {
       setOrders([]);
-      setError('เกิดข้อผิดพลาดในการโหลดข้อมูล');
+      setError(data.message || 'ไม่พบออเดอร์');
     }
-  };
+  } catch {
+    setOrders([]);
+    setError('เกิดข้อผิดพลาดในการโหลดข้อมูล');
+  }
+};
+
 
   const callForBill = async (orderId: string) => {
     try {
@@ -103,9 +121,7 @@ export default function OrderStatusPage() {
       const data = res.data;
       if (data.success) {
         setMessage('คุณได้เรียกพนักงานมาเก็บค่าบริการแล้ว กรุณารอสักครู่ พนักงานกำลังมา');
-        setOrders((prev) =>
-          prev.map((o) => (o._id === orderId ? { ...o, isCallBill: true } : o))
-        );
+        setOrders((prev) => prev.map((o) => (o._id === orderId ? { ...o, isCallBill: true } : o)));
       } else {
         setMessage('เรียกเช็คบิลไม่สำเร็จ');
       }
@@ -119,20 +135,7 @@ export default function OrderStatusPage() {
       <h1 className="text-3xl font-bold mb-6 text-gray-900">ตรวจสอบสถานะออเดอร์</h1>
 
       <div className="flex gap-3 items-center mb-6">
-        {hasTables ? (
-          <select
-            value={identifier}
-            onChange={(e) => setIdentifier(e.target.value)}
-            className="border border-gray-300 px-4 py-2 rounded-md flex-grow text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition"
-          >
-            <option value=""> เลือกโต๊ะของท่าน </option>
-            {Array.from({ length: maxTableCount }, (_, i) => i + 1).map((num) => (
-              <option key={num} value={num.toString()}>
-                โต๊ะ {num}
-              </option>
-            ))}
-          </select>
-        ) : (
+        {activeTables === null ? (
           <input
             type="text"
             placeholder="กรอกชื่อผู้สั่ง"
@@ -140,13 +143,41 @@ export default function OrderStatusPage() {
             onChange={(e) => setIdentifier(e.target.value)}
             className="border border-gray-300 px-4 py-2 rounded-md flex-grow text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition"
           />
+        ) : (
+          <select
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
+            className="border border-gray-300 px-4 py-2 rounded-md flex-grow text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition"
+          >
+            <option value=""> เลือกโต๊ะของท่าน </option>
+            {activeTables.length > 0 ? (
+              activeTables.map((num) => (
+                <option key={num} value={num.toString()}>
+                  โต๊ะ {num}
+                </option>
+              ))
+            ) : (
+              <option disabled>ตอนนี้ยังไม่มีออเดอร์ให้ตรวจสอบ</option>
+            )}
+          </select>
         )}
+
         <button
           onClick={fetchOrderStatus}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-md shadow-md transition"
+          disabled={
+            (activeTables && activeTables.length === 0) || // มีโต๊ะแต่ยังไม่มีออร์เดอร์
+            (!identifier.trim()) // ไม่มีโต๊ะแต่ยังไม่ได้กรอกชื่อ
+          }
+          className={`bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-md shadow-md transition
+            ${
+              (activeTables && activeTables.length === 0) || !identifier.trim()
+                ? 'opacity-50 cursor-not-allowed'
+                : ''
+            }`}
         >
           ตรวจสอบ
         </button>
+
       </div>
 
       {error && <p className="text-red-600 font-semibold mb-4">{error}</p>}
@@ -161,36 +192,26 @@ export default function OrderStatusPage() {
           {orders.map((order) => {
             const currentStatus = STATUS_LIST.find((s) => s.key === order.status);
             return (
-              <div
-                key={order._id}
-                className="p-5 rounded-lg shadow-sm border border-gray-300 flex flex-col gap-4 bg-white"
-              >
+              <div key={order._id} className="p-5 rounded-lg shadow-sm border border-gray-300 flex flex-col gap-4 bg-white">
                 <h2 className="text-xl font-semibold text-gray-800">
                   {order.customerName
                     ? `ชื่อลูกค้า: ${order.customerName}`
                     : order.tableNumber
-                      ? `โต๊ะ: ${order.tableNumber}`
-                      : 'ไม่ระบุโต๊ะ/ลูกค้า'}
+                    ? `โต๊ะ: ${order.tableNumber}`
+                    : 'ไม่ระบุโต๊ะ/ลูกค้า'}
                 </h2>
 
-                <p
-                  className={`inline-flex items-center gap-2 font-semibold rounded px-3 py-1 w-fit
-                  ${currentStatus?.colorClass || 'bg-gray-200 text-gray-700'}`}
-                >
+                <p className={`inline-flex items-center gap-2 font-semibold rounded px-3 py-1 w-fit ${currentStatus?.colorClass || 'bg-gray-200 text-gray-700'}`}>
                   {currentStatus?.icon} {currentStatus?.label || order.status}
                 </p>
 
-                <p className="mt-1 text-gray-700 font-medium">
-                  {getQueueTime(order.queueNumber)}
-                </p>
+                <p className="mt-1 text-gray-700 font-medium">{getQueueTime(order.queueNumber)}</p>
 
                 <ul className="list-disc pl-6 text-gray-900 mt-0">
                   {order.items.map((item, idx) => (
                     <li key={idx} className="mb-1">
                       <span className="font-medium">{item.name}</span> × {item.quantity}
-                      {item.comment && (
-                        <span className="italic text-green-800 ml-2">({item.comment})</span>
-                      )}
+                      {item.comment && <span className="italic text-green-800 ml-2">({item.comment})</span>}
                       {item.addOns && item.addOns.length > 0 && (
                         <span className="ml-2 text-blue-400 italic">
                           [Addเพิ่มเติม: {item.addOns.map(a => `${a.name}(+${a.price})`).join(', ')}]
@@ -208,8 +229,7 @@ export default function OrderStatusPage() {
                   <button
                     onClick={() => callForBill(order._id)}
                     disabled={!!order.isCallBill}
-                    className={`px-4 py-2 rounded-md text-white font-semibold transition
-                      ${order.isCallBill ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
+                    className={`px-4 py-2 rounded-md text-white font-semibold transition ${order.isCallBill ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
                   >
                     {order.isCallBill ? 'เรียกเช็คบิลแล้ว' : 'เรียกเช็คบิล'}
                   </button>

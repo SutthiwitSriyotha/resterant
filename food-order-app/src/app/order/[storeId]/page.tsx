@@ -34,6 +34,7 @@ export default function OrderPage() {
   const storeId = params.storeId as string;
 
   const [menus, setMenus] = useState<MenuItem[]>([]);
+  const [loadingMenus, setLoadingMenus] = useState(true);
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [tableNumber, setTableNumber] = useState('');
   const [addingMenuId, setAddingMenuId] = useState<string | null>(null);
@@ -43,6 +44,8 @@ export default function OrderPage() {
   const [hasTables, setHasTables] = useState(false);
   const [maxTableCount, setMaxTableCount] = useState(0);
   const [showOrderPopup, setShowOrderPopup] = useState(false);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [takenTables, setTakenTables] = useState<number[]>([]);
 
   useEffect(() => {
     async function fetchMenus() {
@@ -51,6 +54,8 @@ export default function OrderPage() {
         setMenus(res.data.menus);
       } catch (error) {
         console.error('โหลดเมนูล้มเหลว', error);
+      } finally {
+        setLoadingMenus(false);
       }
     }
 
@@ -70,12 +75,41 @@ export default function OrderPage() {
     fetchStoreInfo();
   }, [storeId]);
 
-  const handleStartAdd = (menuId: string) => {
-    const item = orderItems.find((i) => i.menuId === menuId);
-    setAddingMenuId(menuId);
-    setAddQuantity(item ? item.quantity : 1);
-    setAddComment(item ? item.comment : '');
-    setSelectedAddOns(item ? item.selectedAddOns || [] : []);
+  useEffect(() => {
+    async function fetchTakenTables() {
+      if (!hasTables) return;
+      try {
+        const res = await axios.get(`/api/store/${storeId}/orders/active-tables`);
+        if (res.data.success) {
+          setTakenTables(res.data.takenTables.map(Number));
+        }
+      } catch (err) {
+        console.error('โหลดโต๊ะที่ไม่ว่างล้มเหลว', err);
+      }
+    }
+    fetchTakenTables();
+  }, [storeId, hasTables]);
+
+  const handleStartAdd = (menuId: string, index?: number, fromPopup = false) => {
+    const menu = menus.find((m) => m._id === menuId);
+    if (!menu) return;
+
+    if (index !== undefined) {
+      const item = orderItems[index];
+      setEditingIndex(index);
+      setAddingMenuId(menuId);
+      setAddQuantity(item.quantity);
+      setAddComment(item.comment);
+      setSelectedAddOns(item.selectedAddOns || []);
+    } else {
+      setEditingIndex(null);
+      setAddingMenuId(menuId);
+      setAddQuantity(1);
+      setAddComment('');
+      setSelectedAddOns([]);
+    }
+
+    if (fromPopup) setShowOrderPopup(false);
   };
 
   const handleToggleAddOn = (addon: AddOn) => {
@@ -95,34 +129,31 @@ export default function OrderPage() {
     const menu = menus.find((m) => m._id === addingMenuId);
     if (!menu) return;
 
+    const newItem: OrderItem = {
+      menuId: menu._id,
+      name: menu.name,
+      price: menu.price,
+      quantity: addQuantity,
+      comment: addComment,
+      selectedAddOns,
+    };
+
     setOrderItems((prev) => {
-      const exist = prev.find((item) => item.menuId === addingMenuId);
-      if (exist) {
-        return prev.map((item) =>
-          item.menuId === addingMenuId
-            ? { ...item, quantity: addQuantity, comment: addComment, selectedAddOns }
-            : item
-        );
+      if (editingIndex !== null) {
+        const copy = [...prev];
+        copy[editingIndex] = newItem;
+        return copy;
       } else {
-        return [
-          ...prev,
-          {
-            menuId: menu._id,
-            name: menu.name,
-            price: menu.price,
-            quantity: addQuantity,
-            comment: addComment,
-            selectedAddOns,
-          },
-        ];
+        return [...prev, newItem];
       }
     });
 
     setAddingMenuId(null);
+    setEditingIndex(null);
   };
 
-  const handleRemoveOrderItem = (menuId: string) => {
-    setOrderItems((prev) => prev.filter((item) => item.menuId !== menuId));
+  const handleRemoveOrderItem = (index: number) => {
+    setOrderItems((prev) => prev.filter((_, i) => i !== index));
   };
 
   const totalPrice = orderItems.reduce((sum, item) => {
@@ -163,9 +194,7 @@ export default function OrderPage() {
 
       if (res.data.success) {
         alert('สั่งอาหารเรียบร้อยแล้ว');
-        setOrderItems([]);
-        setTableNumber('');
-        setShowOrderPopup(false);
+        window.location.reload();
       } else {
         alert('เกิดข้อผิดพลาดในการสั่งอาหาร');
       }
@@ -193,11 +222,13 @@ export default function OrderPage() {
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-base text-black shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 transition"
             >
               <option value="">เลือกโต๊ะที่นั่งของท่านได้เลย</option>
-              {Array.from({ length: maxTableCount }, (_, i) => i + 1).map((num) => (
-                <option key={num} value={num}>
-                  โต๊ะ {num}
-                </option>
-              ))}
+              {Array.from({ length: maxTableCount }, (_, i) => i + 1)
+                .filter(num => !takenTables.includes(num))
+                .map(num => (
+                  <option key={num} value={num}>
+                    โต๊ะ {num}
+                  </option>
+                ))}
             </select>
           ) : (
             <input
@@ -210,25 +241,33 @@ export default function OrderPage() {
           )}
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 relative">
           <button
             onClick={() => router.push(`/order/${storeId}/status`)}
             className="bg-pink-500 text-white px-4 py-2 rounded-3xl font-semibold text-base shadow hover:bg-pink-700 transition"
           >
             เช็คสถานะอาหาร
           </button>
-          <button
-            onClick={() => setShowOrderPopup(true)}
-            className="bg-blue-500 text-white px-4 py-2 rounded-3xl font-semibold text-base shadow hover:bg-blue-700 transition"
-          >
-            ออเดอร์ที่คุณเพิ่มไว้
-          </button>
+
+          <div className="relative">
+            <button
+              onClick={() => setShowOrderPopup(true)}
+              className="bg-blue-500 text-white px-4 py-2 rounded-3xl font-semibold text-base shadow hover:bg-blue-700 transition"
+            >
+              ออเดอร์ที่คุณเพิ่มไว้
+            </button>
+            {orderItems.length > 0 && (
+              <span className="absolute -top-2 -right-1 bg-red-500 text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full shadow-md">
+                {orderItems.reduce((sum, item) => sum + item.quantity, 0)}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
       {/* เมนูรายการอาหาร */}
       {addingMenuId ? (
-        <div className="max-w-3xl mx-auto p-8 bg-gray-50 rounded-3xl shadow-lg border border-gray-300 flex flex-col items-center space-y-6">
+        <div className="max-w-xl mx-auto p-6 bg-white rounded-2xl shadow-md border border-gray-200">
           {(() => {
             const menu = menus.find((m) => m._id === addingMenuId);
             if (!menu) return null;
@@ -238,68 +277,82 @@ export default function OrderPage() {
                   <img
                     src={menu.image}
                     alt={menu.name}
-                    className="w-full max-h-[400px] object-cover rounded-3xl shadow-md"
+                    className="w-full max-h-[250px] object-cover rounded-xl shadow-sm mb-3"
                   />
                 )}
-                <h2 className="text-2xl font-bold">{menu.name}</h2>
-                <p className="text-xl">{menu.price.toLocaleString()} บาท</p>
+
+                <h2 className="text-xl font-bold mb-1">{menu.name}</h2>
+                <p className="text-base text-gray-700 mb-2">
+                  เริ่มต้นที่ {menu.price.toLocaleString()} บาท
+                </p>
+
                 {menu.description && (
-                  <p className="max-w-xl text-center text-gray-700">{menu.description}</p>
+                  <p className="text-sm text-gray-600 mb-3">{menu.description}</p>
                 )}
 
                 {menu.addOns && menu.addOns.length > 0 && (
-                  <div className="w-full max-w-md mt-4 space-y-2">
-                    <p className="font-semibold mb-2">Add เพิ่มเติม</p>
-                    {menu.addOns.map((addon) => (
-                      <label
-                        key={addon.id}
-                        className="flex items-center gap-3 border border-gray-300 rounded-xl px-4 py-2"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedAddOns.some((a) => a.id === addon.id)}
-                          onChange={() => handleToggleAddOn(addon)}
-                          className="w-5 h-5"
-                        />
-                        <span>{addon.name} (+{addon.price} บาท)</span>
-                      </label>
-                    ))}
+                  <div className="w-full space-y-2 mb-3">
+                    <p className="font-semibold text-sm">Add เพิ่มเติม</p>
+                    {menu.addOns.map((addon) => {
+                      const isSelected = selectedAddOns.some((a) => a.id === addon.id);
+                      return (
+                        <div
+                          key={addon.id}
+                          onClick={() => handleToggleAddOn(addon)}
+                          className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition
+                            ${isSelected ? "border-green-500 bg-green-50" : "border-gray-300 hover:border-gray-400"}`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            readOnly
+                            className="w-4 h-4 accent-green-600"
+                          />
+                          <span className="text-sm">
+                            {addon.name} (+{addon.price} บาท)
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
 
-                <div className="w-full max-w-md space-y-4 mt-4">
+                <div className="space-y-3">
                   <div>
-                    <label className="block text-lg font-semibold mb-2">จำนวน</label>
+                    <label className="block text-sm font-semibold mb-1">จำนวน</label>
                     <input
                       type="number"
                       min={1}
                       value={addQuantity}
                       onChange={(e) => setAddQuantity(Number(e.target.value))}
-                      className="w-full rounded-xl border border-gray-400 px-5 py-3 text-lg text-black shadow-sm focus:outline-none focus:ring-4 focus:ring-gray-300 transition"
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-black shadow-sm focus:outline-none focus:ring-2 focus:ring-green-400"
                     />
                   </div>
                   <div>
-                    <label className="block text-lg font-semibold mb-2">คอมเมนต์</label>
+                    <label className="block text-sm font-semibold mb-1">คอมเมนต์</label>
                     <input
                       type="text"
                       value={addComment}
                       onChange={(e) => setAddComment(e.target.value)}
                       placeholder="เช่น เผ็ดน้อย ไม่ใส่ผัก"
-                      className="w-full rounded-xl border border-gray-400 px-5 py-3 text-lg text-black shadow-sm placeholder-gray-400 focus:outline-none focus:ring-4 focus:ring-gray-300 transition"
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-black shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-400"
                     />
                   </div>
                 </div>
 
-                <div className="flex gap-2 mt-4">
+                <div className="flex gap-3 mt-5">
                   <button
                     onClick={handleConfirmAdd}
-                    className="bg-green-700 text-white px-10 py-4 rounded-3xl shadow-lg hover:bg-green-800 transition text-lg font-semibold"
+                    className="flex-1 bg-green-600 text-white py-2.5 rounded-xl shadow-md hover:bg-green-700 transition text-sm font-semibold"
                   >
                     ยืนยัน
                   </button>
                   <button
-                    onClick={() => setAddingMenuId(null)}
-                    className="bg-gray-300 text-gray-700 px-10 py-4 rounded-3xl shadow-lg hover:bg-gray-400 transition text-lg font-semibold"
+                    onClick={() => {
+                      setAddingMenuId(null);
+                      setEditingIndex(null);
+                    }}
+                    className="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-xl shadow-md hover:bg-gray-300 transition text-sm font-semibold"
                   >
                     ยกเลิก
                   </button>
@@ -308,47 +361,54 @@ export default function OrderPage() {
             );
           })()}
         </div>
+      ) : loadingMenus ? (
+        <div className="text-center text-gray-500 text-sm sm:text-base py-10">
+          กำลังโหลดเมนู...
+        </div>
+      ) : menus.length === 0 ? (
+        <div className="text-center text-gray-500 text-sm sm:text-base py-10">
+          ร้านนี้ยังไม่มีเมนู
+        </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-          {menus.map((menu) => {
-            const orderItem = orderItems.find((item) => item.menuId === menu._id);
-            return (
-              <div
-                key={menu._id}
-                className="border border-gray-300 rounded-3xl p-6 shadow-md bg-gray-50 hover:shadow-lg transition cursor-pointer select-none flex flex-col"
-              >
-                {menu.image && (
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-4">
+          {menus.map((menu) => (
+            <div
+              key={menu._id}
+              onClick={() => handleStartAdd(menu._id)}
+              className="flex flex-col bg-white rounded-2xl border border-gray-200 shadow-md hover:shadow-lg transition cursor-pointer overflow-hidden"
+            >
+              {menu.image && (
+                <div className="w-full aspect-[3/2] p-1 sm:p-2">
                   <img
                     src={menu.image}
                     alt={menu.name}
-                    className="w-full h-48 object-cover rounded-2xl mb-5 shadow-sm"
+                    className="w-full h-full object-cover rounded-xl shadow-sm"
                   />
-                )}
-                <h2 className="text-lg font-bold mb-1">{menu.name}</h2>
-                <p className="text-base mb-3">{menu.price.toLocaleString()} บาท</p>
-                {menu.description && (
-                  <p className="text-gray-700 mb-5 line-clamp-3">{menu.description}</p>
-                )}
+                </div>
+              )}
+              <div className="flex-1 flex flex-col justify-between p-2 sm:p-3">
+                <div>
+                  <h2 className="text-sm sm:text-base font-bold mb-0.5 truncate">{menu.name}</h2>
+                  <p className="text-xs sm:text-sm mb-1">{menu.price.toLocaleString()} บาท</p>
+                  {menu.description && (
+                    <p className="text-gray-700 text-xs sm:text-sm line-clamp-2">{menu.description}</p>
+                  )}
+                </div>
                 <button
-                  onClick={() => handleStartAdd(menu._id)}
-                  className="mt-auto w-full bg-blue-500 text-white py-3 rounded-3xl shadow hover:bg-blue-700 transition text-base font-semibold"
+                  onClick={(e) => { e.stopPropagation(); handleStartAdd(menu._id); }}
+                  className="mt-2 w-full bg-blue-500 text-white py-1.5 sm:py-2 rounded-xl font-semibold text-xs sm:text-sm shadow hover:bg-blue-600 transition"
                 >
-                  {orderItem ? 'แก้ไขในออเดอร์' : 'เพิ่มในออเดอร์'}
+                  เพิ่มในออเดอร์
                 </button>
-                {orderItem && (
-                  <p className="mt-3 text-green-700 font-semibold text-center">
-                    เพิ่มไว้ในออเดอร์: {orderItem.quantity} ชิ้น
-                  </p>
-                )}
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       )}
 
       {/* Pop-up สรุปออเดอร์ */}
       {showOrderPopup && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-5">
           <div className="bg-gray-50 rounded-2xl p-6 w-full sm:w-96 md:w-[500px] max-h-[90vh] overflow-y-auto shadow-lg relative">
             <button
               onClick={() => setShowOrderPopup(false)}
@@ -356,24 +416,24 @@ export default function OrderPage() {
             >
               ✕
             </button>
-            <h2 className="text-xl sm:text-2xl font-semibold mb-5 text-gray-900">รายการอาหารที่เลือก</h2>
+            <h2 className="text-xl sm:text-2xl font-semibold mb-3 text-gray-900">รายการอาหารที่เลือก</h2>
 
             {orderItems.length === 0 ? (
               <p className="text-gray-700 text-sm sm:text-base">ยังไม่มีรายการอาหารที่เลือก</p>
             ) : (
               <div className="space-y-4">
-                {orderItems.map((item) => {
+                {orderItems.map((item, index) => {
                   const addonsTotal = item.selectedAddOns?.reduce((a, b) => a + b.price, 0) || 0;
                   return (
                     <div
-                      key={item.menuId}
+                      key={index}
                       className="flex flex-col sm:flex-row sm:items-center justify-between bg-white rounded-xl shadow-sm p-4 hover:shadow-md transition"
                     >
                       <div className="flex-1">
                         <p className="text-sm sm:text-base font-semibold text-gray-900">{item.name}</p>
                         {item.selectedAddOns && item.selectedAddOns.length > 0 && (
                           <p className="text-gray-600 mt-1 text-xs sm:text-sm">
-                            Add-ons: {item.selectedAddOns.map((a) => `${a.name}(+${a.price})`).join(', ')}
+                            Add เพิ่มเติม: {item.selectedAddOns.map((a) => `${a.name}(+${a.price})`).join(', ')}
                           </p>
                         )}
                         <p className="text-gray-700 mt-1 text-xs sm:text-sm">
@@ -385,6 +445,20 @@ export default function OrderPage() {
                         <p className="mt-1 text-gray-900 font-semibold text-sm sm:text-base">
                           รวม: {(item.price + addonsTotal) * item.quantity} บาท
                         </p>
+                      </div>
+                      <div className="flex gap-2 mt-1 sm:mt-0">
+                        <button
+                          onClick={() => handleStartAdd(item.menuId, index, true)}
+                          className="bg-yellow-400 px-2 py-1 rounded-2xl text-white font-semibold hover:bg-yellow-500 transition"
+                        >
+                          แก้ไข
+                        </button>
+                        <button
+                          onClick={() => handleRemoveOrderItem(index)}
+                          className="bg-red-500 px-4 py-2 rounded-2xl text-white font-semibold hover:bg-red-600 transition"
+                        >
+                          ลบ
+                        </button>
                       </div>
                     </div>
                   );
