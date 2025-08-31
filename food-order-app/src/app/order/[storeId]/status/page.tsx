@@ -1,10 +1,9 @@
-'use client';
+'use client'; 
 
 import { useState, useEffect } from 'react';
-import { FiCheckCircle, FiClock, FiBox, FiTruck, FiCheck } from 'react-icons/fi';
-import { useParams } from 'next/navigation';
+import { FiCheckCircle, FiClock, FiBox, FiTruck, FiCheck, FiArrowLeft } from 'react-icons/fi';
+import { useParams, useRouter } from 'next/navigation';
 import axios from 'axios';
-
 
 type AddOn = { id: string; name: string; price: number };
 type OrderItem = { name: string; quantity: number; comment?: string; addOns?: AddOn[] };
@@ -39,11 +38,13 @@ const getQueueTime = (queueNumber?: number) => {
 
 export default function OrderStatusPage() {
   const { storeId } = useParams();
+  const router = useRouter();
+
   const [identifier, setIdentifier] = useState('');
   const [orders, setOrders] = useState<OrderStatus[]>([]);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
-  const [activeTables, setActiveTables] = useState<number[] | null>(null); // null = ร้านไม่มีโต๊ะ
+  const [activeTables, setActiveTables] = useState<number[] | null>(null);
 
   // ดึงเลขโต๊ะที่มีออร์เดอร์จริง
   useEffect(() => {
@@ -53,15 +54,15 @@ export default function OrderStatusPage() {
         const hasTables = resInfo.data.tableInfo.hasTables;
 
         if (!hasTables) {
-          setActiveTables(null); // ร้านไม่มีโต๊ะ
+          setActiveTables(null);
           return;
         }
 
         const res = await axios.get(`/api/store/${storeId}/orders/tables`);
         if (res.data.success) {
-          setActiveTables(res.data.tables); // โต๊ะที่มีออร์เดอร์
+          setActiveTables(res.data.tables);
         } else {
-          setActiveTables([]); // มีโต๊ะแต่ยังไม่มีออร์เดอร์
+          setActiveTables([]);
         }
       } catch (err) {
         console.error(err);
@@ -72,48 +73,46 @@ export default function OrderStatusPage() {
   }, [storeId]);
 
   const fetchOrderStatus = async () => {
-  if (!identifier.trim()) {
-    setError(activeTables === null ? 'กรุณากรอกชื่อผู้สั่ง' : 'กรุณาเลือกโต๊ะ');
-    setOrders([]);
-    setMessage('');
-    return;
-  }
-
-  setError('');
-  setMessage('');
-
-  const query = activeTables === null ? `customer=${identifier.trim()}` : `table=${identifier.trim()}`;
-
-  try {
-    const res = await axios.get(`/api/order/status?storeId=${storeId}&${query}`);
-    const data = res.data;
-
-    if (data.success) {
-      const filteredOrders: OrderStatus[] = data.orders.filter((o: OrderStatus) => o.status !== 'paid');
-
-      if (filteredOrders.length === 0) {
-        setOrders([]);
-        setError('ยังไม่มีออเดอร์ในขณะนี้');
-      } else {
-        setOrders(filteredOrders.sort((a, b) => (a.queueNumber ?? 0) - (b.queueNumber ?? 0)));
-      }
-
-      // รีเฟรช activeTables ใหม่หลังตรวจสอบ
-      if (activeTables !== null) {
-        const resTables = await axios.get(`/api/store/${storeId}/orders/tables`);
-        if (resTables.data.success) setActiveTables(resTables.data.tables);
-        else setActiveTables([]);
-      }
-    } else {
+    if (!identifier.trim()) {
+      setError(activeTables === null ? 'กรุณากรอกชื่อผู้สั่ง' : 'กรุณาเลือกโต๊ะ');
       setOrders([]);
-      setError(data.message || 'ไม่พบออเดอร์');
+      setMessage('');
+      return;
     }
-  } catch {
-    setOrders([]);
-    setError('เกิดข้อผิดพลาดในการโหลดข้อมูล');
-  }
-};
 
+    setError('');
+    setMessage('');
+
+    const query = activeTables === null ? `customer=${identifier.trim()}` : `table=${identifier.trim()}`;
+
+    try {
+      const res = await axios.get(`/api/order/status?storeId=${storeId}&${query}`);
+      const data = res.data;
+
+      if (data.success) {
+        const filteredOrders: OrderStatus[] = data.orders.filter((o: OrderStatus) => o.status !== 'paid');
+
+        if (filteredOrders.length === 0) {
+          setOrders([]);
+          setError('ยังไม่มีออเดอร์ในขณะนี้');
+        } else {
+          setOrders(filteredOrders.sort((a, b) => (a.queueNumber ?? 0) - (b.queueNumber ?? 0)));
+        }
+
+        if (activeTables !== null) {
+          const resTables = await axios.get(`/api/store/${storeId}/orders/tables`);
+          if (resTables.data.success) setActiveTables(resTables.data.tables);
+          else setActiveTables([]);
+        }
+      } else {
+        setOrders([]);
+        setError(data.message || 'ไม่พบออเดอร์');
+      }
+    } catch {
+      setOrders([]);
+      setError('เกิดข้อผิดพลาดในการโหลดข้อมูล');
+    }
+  };
 
   const callForBill = async (orderId: string) => {
     try {
@@ -131,8 +130,17 @@ export default function OrderStatusPage() {
   };
 
   return (
-    <div className="max-w-xl mx-auto p-6 bg-white min-h-screen rounded-md shadow-md border border-gray-300">
-      <h1 className="text-3xl font-bold mb-6 text-gray-900">ตรวจสอบสถานะออเดอร์</h1>
+    <div className="relative max-w-xl mx-auto p-6 bg-white min-h-screen rounded-md shadow-md border border-gray-300">
+      
+      {/* ปุ่มย้อนกลับ */}
+      <button
+        onClick={() => router.push(`/order/${storeId}`)}
+        className="absolute top-7 left-1 z-50 w-7 h-7 flex items-center justify-center rounded-full bg-white bg-opacity-70 hover:bg-opacity-90 shadow-md transition md:hidden"
+      >
+        <FiArrowLeft className="text-gray-700 w-5 h-5" />
+      </button>
+
+      <h1 className="text-3xl font-bold mb-6 text-gray-900 text-center md:text-left">ตรวจสอบสถานะออเดอร์</h1>
 
       <div className="flex gap-3 items-center mb-6">
         {activeTables === null ? (
@@ -165,8 +173,8 @@ export default function OrderStatusPage() {
         <button
           onClick={fetchOrderStatus}
           disabled={
-            (activeTables && activeTables.length === 0) || // มีโต๊ะแต่ยังไม่มีออร์เดอร์
-            (!identifier.trim()) // ไม่มีโต๊ะแต่ยังไม่ได้กรอกชื่อ
+            (activeTables && activeTables.length === 0) ||
+            (!identifier.trim())
           }
           className={`bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-md shadow-md transition
             ${
@@ -177,7 +185,6 @@ export default function OrderStatusPage() {
         >
           ตรวจสอบ
         </button>
-
       </div>
 
       {error && <p className="text-red-600 font-semibold mb-4">{error}</p>}
