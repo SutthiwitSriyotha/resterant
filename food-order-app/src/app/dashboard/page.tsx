@@ -26,6 +26,8 @@ export default function DashboardPage() {
   const [showQRCode, setShowQRCode] = useState(false);
   const [activeTab, setActiveTab] = useState<'table' | 'qr' | 'menu'>('table');
   const qrRef = useRef<HTMLDivElement | null>(null);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+
 
   const [hasTables, setHasTables] = useState(true);
   const [tableCount, setTableCount] = useState(1);
@@ -101,10 +103,34 @@ export default function DashboardPage() {
       <Toaster position="top-right" />
       
       {/* Navbar */}
-      <div className="flex justify-between items-center bg-green-400 px-6 py-4 shadow-md">
-        <div className="text-gray-900 font-bold text-xl md:text-xl text-base md:text-left">
+      <div className="flex justify-between items-center bg-green-400 px-2 py-4 shadow-md relative">
+        {/* Mobile menu button */}
+        <div className="md:hidden">
+          <button
+            onClick={() => setShowMobileMenu(!showMobileMenu)}
+            className="px-2 py-1 bg-white text-gray-900 rounded-lg shadow"
+          >
+            ☰ 
+          </button>
+
+          {/* Popup menu */}
+          {showMobileMenu && (
+            <div className="absolute top-14 left-4 bg-white shadow-lg rounded-xl p-3 flex flex-col gap-2 w-48 z-50">
+              <Link href="/dashboard/menu" className="px-3 py-2 bg-gray-100 rounded-lg hover:bg-gray-200">จัดการเมนูอาหาร</Link>
+              <Link href="/dashboard/orders" className="px-3 py-2 bg-gray-100 rounded-lg hover:bg-gray-200">จัดการออร์เดอร์</Link>
+              {store?._id && (
+                <Link href={`/order/${store._id}`} className="px-3 py-2 bg-gray-100 rounded-lg hover:bg-gray-200">
+                  หน้าออเดอร์ลูกค้า
+                </Link>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="text-gray-900 font-bold text-x md:text-xl text-base md:text-left">
           Dashboard {store?.name ? ` ${store.name}` : ''}
         </div>
+
         <div className="flex items-center gap-3 md:gap-3">
           {/* Desktop buttons */}
           <div className="hidden md:flex gap-3">
@@ -121,6 +147,7 @@ export default function DashboardPage() {
           </Link>
         </div>
       </div>
+
 
       {/* Main layout */}
       <div className="flex flex-col md:flex-row h-[calc(100vh-64px)]">
@@ -187,12 +214,6 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Mobile bottom buttons */}
-        <div className="md:hidden fixed bottom-0 left-0 w-full bg-green-200 p-2 flex justify-around shadow-inner text-xs">
-          <Link href="/dashboard/menu" className="bg-white px-2 py-1 rounded shadow">จัดการเมนู</Link>
-          <Link href="/dashboard/orders" className="bg-white px-2 py-1 rounded shadow">จัดการออร์เดอร์</Link>
-          {store?._id && <Link href={`/order/${store._id}`} className="bg-white px-2 py-1 rounded shadow">หน้าออเดอร์ลูกค้า</Link>}
-        </div>
       </div>
 
       <style jsx>{`
