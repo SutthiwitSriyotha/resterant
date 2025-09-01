@@ -30,6 +30,8 @@ export default function MenuPage() {
   const [newAddOnName, setNewAddOnName] = useState('');
   const [newAddOnPrice, setNewAddOnPrice] = useState('');
   const formRef = useRef<HTMLDivElement>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
 
   useEffect(() => {
     const fetchMenus = async () => {
@@ -53,8 +55,10 @@ export default function MenuPage() {
   }, []);
 
   const handleUpload = async () => {
-    if (!name || !price) return;
+  if (!name || !price) return;
 
+  setIsSaving(true); // เริ่มบันทึก
+  try {
     if (imageFile) {
       const reader = new FileReader();
       reader.onloadend = async () => {
@@ -65,7 +69,11 @@ export default function MenuPage() {
     } else {
       await saveMenu();
     }
-  };
+  } finally {
+    setIsSaving(false); // เสร็จแล้ว
+  }
+};
+
 
   const saveMenu = async (base64Image?: string) => {
     const menuData: any = {
@@ -255,10 +263,12 @@ export default function MenuPage() {
         <div className="pt-4 flex gap-4">
           <button
             onClick={handleUpload}
-            className="bg-[#00b14f] hover:bg-green-700 text-white px-6 py-2 rounded-lg font-semibold transition"
+            disabled={isSaving}
+            className={`bg-[#00b14f] hover:bg-green-700 text-white px-6 py-2 rounded-lg font-semibold transition ${isSaving ? 'opacity-60 cursor-not-allowed' : ''}`}
           >
-            {editId ? 'อัปเดตเมนู' : 'บันทึกเมนู'}
+            {isSaving ? 'กำลังบันทึกเมนู...' : editId ? 'อัปเดตเมนู' : 'บันทึกเมนู'}
           </button>
+
           {editId && (
             <button
               onClick={resetForm}
