@@ -2,9 +2,10 @@
 
 import Link from 'next/link';
 import { useRef, useState, useEffect } from 'react';
-import { FaUserCircle, FaDownload } from 'react-icons/fa';
+import { FaUserCircle, FaDownload, FaBars, FaTimes } from 'react-icons/fa';
 import QRCode from 'react-qr-code';
 import useSWR from 'swr';
+import toast, { Toaster } from 'react-hot-toast';
 
 interface AddOn { id: string; name: string; price: number; }
 interface Menu { _id: string; name: string; price: number; image?: string; description?: string; addOns?: AddOn[]; }
@@ -13,23 +14,30 @@ interface Store { _id: string; name: string; profileImage?: string; tableInfo?: 
 const fetcher = (url: string) => fetch(url).then(res => res.json());
 
 export default function DashboardPage() {
-  // ใช้ SWR
-  const { data: menuData, error: menuError, isLoading: menuLoading, mutate: mutateMenus } = useSWR('/api/store/menu/list', fetcher);
-  const { data: storeData, error: storeError, isLoading: storeLoading, mutate: mutateStore } = useSWR('/api/store/profile', fetcher);
+  const { data: menuData } = useSWR('/api/store/menu/list', fetcher);
+  const { data: storeData } = useSWR('/api/store/profile', fetcher);
 
   const store: Store | null = storeData?.store || null;
   const menus: Menu[] = menuData?.menus || [];
 
-  const [savingTables, setSavingTables] = useState(false);
-  const [tableSaved, setTableSaved] = useState(false);
-  const [qrValue, setQrValue] = useState('');
-  const [showQRCode, setShowQRCode] = useState(false);
   const [activeTab, setActiveTab] = useState<'table' | 'qr' | 'menu'>('table');
+  const [isMobile, setIsMobile] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(false);
+  const [qrValue, setQrValue] = useState('');
   const qrRef = useRef<HTMLDivElement | null>(null);
 
-  // เซ็ตค่าเริ่มต้นโต๊ะเมื่อ store โหลดแล้ว
   const [hasTables, setHasTables] = useState(true);
   const [tableCount, setTableCount] = useState(1);
+  const [tableSaved, setTableSaved] = useState(false);
+  const [savingTables, setSavingTables] = useState(false);
+  const [showQRCode, setShowQRCode] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     if (store?.tableInfo) {
@@ -37,9 +45,7 @@ export default function DashboardPage() {
       setTableCount(store.tableInfo.tableCount || 1);
       setTableSaved(true);
     }
-    if (store?._id) {
-      setQrValue(`${window.location.origin}/order/${store._id}`);
-    }
+    if (store?._id) setQrValue(`${window.location.origin}/order/${store._id}`);
   }, [store]);
 
   const saveTableSettings = async () => {
@@ -53,12 +59,12 @@ export default function DashboardPage() {
       const data = await res.json();
       if (data.success) {
         setTableSaved(true);
-        mutateStore(); // รีโหลด store data
-      }
+        toast.success('บันทึกโต๊ะเรียบร้อยแล้ว');
+      } else toast.error('ไม่สามารถแก้ไขข้อมูลโต๊ะได้');
     } catch (err) {
       console.error(err);
-    }
-    setSavingTables(false);
+      toast.error('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+    } finally { setSavingTables(false); }
   };
 
   const downloadQRCodeWithName = () => {
@@ -82,77 +88,87 @@ export default function DashboardPage() {
       ctx.drawImage(img, (width-200)/2, 80, 200, 200); 
       URL.revokeObjectURL(url); 
       const pngUrl = canvas.toDataURL('image/png');
-      const a = document.createElement('a'); 
-      a.href = pngUrl; 
-      a.download = `QR_${store?._id}.png`; 
-      a.click();
+      const a = document.createElement('a'); a.href = pngUrl; a.download = `QR_${store?._id}.png`; a.click();
     };
     img.src = url;
   };
 
-  const disableTableSettings = storeLoading || !store?._id;
+  const disableTableSettings = !store?._id;
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900">
+    <div className="min-h-screen bg-gray-50 text-gray-900 relative">
+      <Toaster position="top-right" />
+
       {/* Navbar */}
-      <div className="flex justify-between items-center bg-green-400 px-6 py-6 shadow-md">
-        <div className="text-gray-900 font-bold text-xl">
-          Dashboard {store?.name ? ` ${store.name}` : ''}
+      <div className="flex justify-between items-center bg-green-400 px-4 py-4 shadow-md">
+        {/* Hamburger ปุ่มซ้าย */}
+        {isMobile && (
+          <button onClick={() => setShowSidebar(!showSidebar)} className="p-2 bg-white rounded">
+            <FaBars />
+          </button>
+        )}
+
+        <div className={`font-bold ${isMobile ? 'text-lg' : 'text-xl'} mx-2`}>
+          Dashboard {store?.name || ''}
         </div>
-        <div className="flex items-center gap-3">
-          <Link href="/dashboard/menu" className="px-3 py-1 bg-white text-gray-900 rounded-xl hover:bg-gray-200 transition ">จัดการเมนูอาหาร</Link>
-          <Link href="/dashboard/orders" className="px-3 py-1 bg-white text-gray-900 rounded-xl hover:bg-gray-200 transition">จัดการออร์เดอร์</Link>
-          {store?._id && <Link href={`/order/${store._id}`} className="px-3 py-1 bg-white text-gray-900 rounded-xl hover:bg-gray-200 transition">หน้าออเดอร์ลูกค้า</Link>}
-          {/* โปรไฟล์ */}
-          <Link href="/dashboard/profile" className="ml-4 flex items-center gap-2">
-            <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-gray-300 flex items-center justify-center bg-white">
-              {store?.profileImage ? <img src={store.profileImage} alt="Profile" className="w-full h-full object-cover"/> : <FaUserCircle className="w-8 h-8 text-gray-700"/>}
-            </div>
-          </Link>
-        </div>
+
+        {/* โปรไฟล์ฝั่งขวา */}
+        <Link href="/dashboard/profile" className="ml-auto flex items-center gap-2">
+          <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-gray-300 flex items-center justify-center bg-white">
+            {store?.profileImage ? <img src={store.profileImage} className="w-full h-full object-cover" /> : <FaUserCircle className="w-6 h-6 text-gray-700"/>}
+          </div>
+        </Link>
       </div>
 
-      {/* Main layout */}
-      <div className="flex h-[calc(100vh-64px)]">
-        {/* Sidebar */}
-        <div className="w-64 bg-green-100 text-gray-900 flex flex-col p-4 gap-4">
-          <button 
-            onClick={() => setActiveTab('table')} 
-            className={`p-3 rounded-lg text-left border border-gray-300 shadow-sm ${activeTab==='table' ? 'bg-green-600 text-white shadow-lg' : 'bg-green-100 hover:bg-green-200'} transition`}
-          >
-            ตั้งค่าโต๊ะร้าน
-          </button>
-          <button 
-            onClick={() => setActiveTab('qr')} 
-            className={`p-3 rounded-lg text-left border border-gray-300 shadow-sm ${activeTab==='qr' ? 'bg-green-600 text-white shadow-lg' : 'bg-green-100 hover:bg-green-200'} transition`}
-          >
-            QR สั่งอาหาร
-          </button>
-          <button 
-            onClick={() => setActiveTab('menu')} 
-            className={`p-3 rounded-lg text-left border border-gray-300 shadow-sm ${activeTab==='menu' ? 'bg-green-600 text-white shadow-lg' : 'bg-green-100 hover:bg-green-200'} transition`}
-          >
-            เมนูที่เพิ่มไว้
-          </button>
-        </div>
 
-        {/* Content */}
-        <div className="flex-1 p-6 overflow-auto relative">
+      {/* Mobile sidebar popup */}
+      {isMobile && showSidebar && (
+        <>
+          <div className="fixed inset-0 bg-black bg-opacity-40 z-40" onClick={()=>setShowSidebar(false)}></div>
+          <div className="fixed top-0 left-0 w-64 h-full bg-green-100 shadow-lg z-50 p-4 flex flex-col gap-2 transform transition-transform duration-300 animate-slide-in">
+            <button className="self-end mb-2" onClick={()=>setShowSidebar(false)}><FaTimes /></button>
+            <button onClick={()=>{setActiveTab('table'); setShowSidebar(false)}} className={`p-3 rounded-lg ${activeTab==='table' ? 'bg-green-600 text-white' : 'bg-green-200'}`}>ตั้งค่าโต๊ะร้าน</button>
+            <button onClick={()=>{setActiveTab('qr'); setShowSidebar(false)}} className={`p-3 rounded-lg ${activeTab==='qr' ? 'bg-green-600 text-white' : 'bg-green-200'}`}>QR สั่งอาหาร</button>
+            <button onClick={()=>{setActiveTab('menu'); setShowSidebar(false)}} className={`p-3 rounded-lg ${activeTab==='menu' ? 'bg-green-600 text-white' : 'bg-green-200'}`}>เมนูที่เพิ่มไว้</button>
+          </div>
+        </>
+      )}
+
+      {/* Top Buttons on Mobile */}
+      {isMobile && (
+        <div className="flex gap-2 p-2 bg-green-50 overflow-x-auto">
+          <Link href="/dashboard/menu" className="px-3 py-1 bg-white rounded text-sm hover:bg-gray-200">จัดการเมนู</Link>
+          <Link href="/dashboard/orders" className="px-3 py-1 bg-white rounded text-sm hover:bg-gray-200">จัดการออร์เดอร์</Link>
+          {store?._id && <Link href={`/order/${store._id}`} className="px-3 py-1 bg-white rounded text-sm hover:bg-gray-200">หน้าออเดอร์ลูกค้า</Link>}
+        </div>
+      )}
+
+      {/* Main Content */}
+      <div className={`flex ${!isMobile ? '' : 'flex-col p-4'}`}>
+        {!isMobile && (
+          <div className="w-64 bg-green-100 flex flex-col p-4 gap-4">
+            <button onClick={() => setActiveTab('table')} className={`p-3 rounded-lg ${activeTab==='table' ? 'bg-green-600 text-white' : 'bg-green-200'}`}>ตั้งค่าโต๊ะร้าน</button>
+            <button onClick={() => setActiveTab('qr')} className={`p-3 rounded-lg ${activeTab==='qr' ? 'bg-green-600 text-white' : 'bg-green-200'}`}>QR สั่งอาหาร</button>
+            <button onClick={() => setActiveTab('menu')} className={`p-3 rounded-lg ${activeTab==='menu' ? 'bg-green-600 text-white' : 'bg-green-200'}`}>เมนูที่เพิ่มไว้</button>
+          </div>
+        )}
+
+        <div className="flex-1 p-4 overflow-auto">
           {activeTab==='table' && (
-            <div className="bg-white rounded-xl shadow-md p-6 animate-slide-in">
-              <h2 className="text-lg font-semibold mb-4">ตั้งค่าโต๊ะร้าน</h2>
+            <div className="bg-white rounded-xl shadow-md p-4">
+              <h2 className="font-semibold mb-2 text-base">{isMobile ? 'ตั้งค่าโต๊ะร้าน (มือถือ)' : 'ตั้งค่าโต๊ะร้าน'}</h2>
               {disableTableSettings ? <p>กำลังโหลด...</p> :
                 tableSaved ? (
-                  <div className="flex justify-between items-center">
+                  <div className="flex justify-between items-center text-sm">
                     <p>สถานะโต๊ะ: {hasTables ? `${tableCount} โต๊ะ` : 'ไม่มีโต๊ะ'}</p>
-                    <button onClick={()=>setTableSaved(false)} className="px-4 py-2 bg-yellow-500 text-white rounded">แก้ไข</button>
+                    <button onClick={()=>setTableSaved(false)} className="px-2 py-1 bg-yellow-500 text-white rounded text-sm">แก้ไข</button>
                   </div>
                 ) : (
-                  <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-2 text-sm">
                     <label className="flex items-center gap-2"><input type="radio" checked={hasTables} onChange={()=>setHasTables(true)}/> ร้านมีโต๊ะ</label>
-                    {hasTables && <input type="number" value={tableCount} onChange={(e)=>setTableCount(parseInt(e.target.value)||1)} className="border px-2 py-1 rounded w-24"/>}
+                    {hasTables && <input type="number" value={tableCount} onChange={(e)=>setTableCount(parseInt(e.target.value)||1)} className="border px-2 py-1 rounded w-20"/>}
                     <label className="flex items-center gap-2"><input type="radio" checked={!hasTables} onChange={()=>{setHasTables(false); setTableCount(0)}}/> ร้านไม่มีโต๊ะ</label>
-                    <button onClick={saveTableSettings} disabled={savingTables} className="px-4 py-2 bg-indigo-600 text-white rounded">{savingTables?'กำลังบันทึก...':'บันทึก'}</button>
+                    <button onClick={saveTableSettings} disabled={savingTables} className="px-3 py-1 bg-indigo-600 text-white rounded">{savingTables?'กำลังบันทึก...':'บันทึก'}</button>
                   </div>
                 )
               }
@@ -160,32 +176,32 @@ export default function DashboardPage() {
           )}
 
           {activeTab==='qr' && store?._id && (
-            <div className="bg-white rounded-xl shadow-md p-6 animate-slide-in">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-semibold">QR สั่งอาหาร</h2>
-                <button onClick={()=>setShowQRCode(!showQRCode)} className="px-3 py-1 bg-indigo-600 text-white rounded">{showQRCode?'ไม่ต้องแสดง':'แสดง QR Code'}</button>
+            <div className="bg-white rounded-xl shadow-md p-4">
+              <div className="flex justify-between items-center mb-2">
+                <h2 className="font-semibold text-base">QR สั่งอาหาร</h2>
+                <button onClick={()=>setShowQRCode(!showQRCode)} className="px-2 py-1 bg-indigo-600 text-white rounded text-sm">{showQRCode?'ไม่ต้องแสดง':'แสดง QR Code'}</button>
               </div>
               {showQRCode && (
-                <div className="flex flex-col items-center gap-3">
-                  <div ref={qrRef}><QRCode value={qrValue} size={200}/></div>
-                  <button onClick={downloadQRCodeWithName} className="px-4 py-2 bg-indigo-600 text-white rounded flex items-center gap-2"><FaDownload/> ดาวน์โหลด QR Code</button>
+                <div className="flex flex-col items-center gap-2">
+                  <div ref={qrRef}><QRCode value={qrValue} size={isMobile ? 150 : 200}/></div>
+                  <button onClick={downloadQRCodeWithName} className="px-3 py-1 bg-indigo-600 text-white rounded flex items-center gap-1 text-sm"><FaDownload/> ดาวน์โหลด QR Code</button>
                 </div>
               )}
             </div>
           )}
 
           {activeTab==='menu' && (
-            <div className="bg-white rounded-xl shadow-md p-6 animate-slide-in">
-              <h2 className="text-lg font-semibold mb-4">เมนูที่เพิ่มไว้</h2>
-              {menuLoading ? <p>กำลังโหลดเมนูร้าน...</p> : menus.length===0 ? <p>ยังไม่มีเมนูอาหาร</p> :
-                <ul className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+            <div className="bg-white rounded-xl shadow-md p-4">
+              <h2 className="font-semibold mb-2 text-base">เมนูที่เพิ่มไว้</h2>
+              {menus.length===0 ? <p className="text-sm">ยังไม่มีเมนูอาหาร</p> :
+                <ul className={`grid gap-4 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3'}`}>
                   {menus.map(menu=>(
-                    <li key={menu._id} className="bg-gray-100 rounded-xl shadow-md p-4 flex flex-col gap-2">
-                      {menu.image && <img src={menu.image} alt={menu.name} className="w-full h-40 object-cover rounded-lg"/>}
+                    <li key={menu._id} className="bg-gray-100 rounded-xl shadow-md p-2 flex flex-col gap-1 text-sm">
+                      {menu.image && <img src={menu.image} alt={menu.name} className="w-full h-32 object-cover rounded-lg"/>}
                       <h3 className="font-semibold">{menu.name}</h3>
                       <p>ราคา: {menu.price} บาท</p>
                       {menu.description && <p>{menu.description}</p>}
-                      {menu.addOns && menu.addOns.length>0 && <div className="flex flex-wrap gap-1">{menu.addOns.map(a=><span key={a.id} className="text-sm bg-gray-200 px-2 py-1 rounded-full">{a.name}+{a.price}</span>)}</div>}
+                      {menu.addOns && menu.addOns.length>0 && <div className="flex flex-wrap gap-1">{menu.addOns.map(a=><span key={a.id} className="text-xs bg-gray-200 px-2 py-0.5 rounded-full">{a.name}+{a.price}</span>)}</div>}
                     </li>
                   ))}
                 </ul>
@@ -197,7 +213,7 @@ export default function DashboardPage() {
 
       <style jsx>{`
         .animate-slide-in { animation: slideIn 0.3s ease-out; }
-        @keyframes slideIn { from { transform: translateX(50px); opacity:0; } to { transform: translateX(0); opacity:1; } }
+        @keyframes slideIn { from { transform: translateX(-100%); opacity:0; } to { transform: translateX(0); opacity:1; } }
       `}</style>
     </div>
   );
