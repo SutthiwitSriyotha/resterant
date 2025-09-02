@@ -29,20 +29,21 @@ export default function MenuPage() {
   const [addOnsArray, setAddOnsArray] = useState<AddOn[]>([]);
   const [newAddOnName, setNewAddOnName] = useState('');
   const [newAddOnPrice, setNewAddOnPrice] = useState('');
-  const formRef = useRef<HTMLDivElement>(null);
+  const [storeSuspended, setStoreSuspended] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-
+  const [isDirty, setIsDirty] = useState(false);
+  const formRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchMenus = async () => {
       try {
         const res = await axios.get('/api/store/menu/list', { withCredentials: true });
         if (res.status === 401) {
-          // ถ้าไม่ได้ login หรือ token หมดอายุ → ไปหน้า login
           window.location.href = '/login';
           return;
         }
-        setMenus(res.data.menus);
+        setMenus(res.data.menus || []);
+        setStoreSuspended(res.data.storeSuspended || false);
       } catch (err: any) {
         if (err.response?.status === 401) {
           window.location.href = '/login';
@@ -54,26 +55,48 @@ export default function MenuPage() {
     fetchMenus();
   }, []);
 
-  const handleUpload = async () => {
-  if (!name || !price) return;
-
-  setIsSaving(true); // เริ่มบันทึก
-  try {
-    if (imageFile) {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64Image = reader.result as string;
-        await saveMenu(base64Image);
-      };
-      reader.readAsDataURL(imageFile);
-    } else {
-      await saveMenu();
+  // ตรวจสอบการแก้ไขข้อมูล
+  useEffect(() => {
+    if (!editId) {
+      setIsDirty(false);
+      return;
     }
-  } finally {
-    setIsSaving(false); // เสร็จแล้ว
-  }
-};
+    const currentMenu = menus.find((m) => m._id === editId);
+    if (!currentMenu) return;
 
+    const changed =
+      name !== currentMenu.name ||
+      price !== currentMenu.price.toString() ||
+      description !== (currentMenu.description || '') ||
+      JSON.stringify(addOnsArray) !== JSON.stringify(currentMenu.addOns || []) ||
+      imageFile !== null;
+
+    setIsDirty(changed);
+  }, [name, price, description, addOnsArray, imageFile, editId, menus]);
+
+  const handleUpload = async () => {
+    if (storeSuspended) {
+      alert('ร้านถูกระงับ ไม่สามารถแก้ไขหรือเพิ่มเมนูได้');
+      return; // ป้องกันไม่ให้เรียก API
+    }
+    if (!name || !price) return;
+
+    setIsSaving(true);
+    try {
+      if (imageFile) {
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          const base64Image = reader.result as string;
+          await saveMenu(base64Image);
+        };
+        reader.readAsDataURL(imageFile);
+      } else {
+        await saveMenu();
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const saveMenu = async (base64Image?: string) => {
     const menuData: any = {
@@ -86,9 +109,7 @@ export default function MenuPage() {
 
     try {
       if (editId) {
-        const res = await axios.put(`/api/store/menu/update?id=${editId}`, menuData, {
-          withCredentials: true,
-        });
+        const res = await axios.put(`/api/store/menu/update?id=${editId}`, menuData, { withCredentials: true });
         if (res.data.success) {
           setMenus((prev) =>
             prev.map((item) =>
@@ -108,6 +129,11 @@ export default function MenuPage() {
       }
       resetForm();
     } catch (err: any) {
+      // จัดการร้านถูกระงับหรือ 403
+      if (err.response?.status === 403) {
+        alert('ร้านถูกระงับ ไม่สามารถบันทึกเมนูได้');
+        return;
+      }
       if (err.response?.status === 401) {
         window.location.href = '/login';
         return;
@@ -125,18 +151,28 @@ export default function MenuPage() {
     setAddOnsArray([]);
     setNewAddOnName('');
     setNewAddOnPrice('');
+    setIsDirty(false);
   };
 
   const handleEdit = (menu: MenuItem) => {
+    if (storeSuspended) {
+      alert('ร้านถูกระงับ ไม่สามารถแก้ไขเมนูได้');
+      return;
+    }
     setName(menu.name);
     setPrice(menu.price.toString());
     setDescription(menu.description || '');
     setEditId(menu._id || null);
     setAddOnsArray(menu.addOns || []);
+    setImageFile(null);
     formRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   const handleDelete = async (id?: string) => {
+    if (storeSuspended) {
+      alert('ร้านถูกระงับ ไม่สามารถลบเมนูได้');
+      return;
+    }
     if (!id || !confirm('ต้องการลบเมนูนี้หรือไม่?')) return;
     try {
       const res = await axios.delete(`/api/store/menu/delete?id=${id}`, { withCredentials: true });
@@ -144,6 +180,10 @@ export default function MenuPage() {
         setMenus((prev) => prev.filter((menu) => menu._id !== id));
       }
     } catch (err: any) {
+      if (err.response?.status === 403) {
+        alert('ร้านถูกระงับ ไม่สามารถลบเมนูได้');
+        return;
+      }
       if (err.response?.status === 401) {
         window.location.href = '/login';
         return;
@@ -170,11 +210,15 @@ export default function MenuPage() {
     <div className="bg-white min-h-screen p-5 md:p-8 max-w-4xl mx-auto text-gray-900">
       <h1 className="text-3xl font-bold mb-6 text-[#00b14f]">จัดการเมนูอาหาร</h1>
 
-      {/* ฟอร์มกรอก */}
+      {storeSuspended && (
+        <p className="text-red-600 font-semibold mb-4">ร้านถูกระงับ คุณไม่สามารถแก้ไขหรือเพิ่มเมนูได้กรุณาติดต่อผู้ดูแลระบบ</p>
+      )}
+
       <div
         ref={formRef}
         className="bg-gray-50 border border-gray-200 rounded-2xl shadow-lg p-6 space-y-5 mb-10"
       >
+        {/* Form fields */}
         <div className="space-y-1">
           <label className="block text-sm font-medium">ชื่อเมนู</label>
           <input
@@ -183,6 +227,7 @@ export default function MenuPage() {
             onChange={(e) => setName(e.target.value)}
             placeholder="เช่น ข้าวหมูแดง"
             className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#00b14f] transition"
+            disabled={storeSuspended}
           />
         </div>
 
@@ -194,6 +239,7 @@ export default function MenuPage() {
             onChange={(e) => setPrice(e.target.value)}
             placeholder="เช่น 60"
             className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#00b14f] transition"
+            disabled={storeSuspended}
           />
         </div>
 
@@ -205,6 +251,7 @@ export default function MenuPage() {
             onChange={(e) => setDescription(e.target.value)}
             placeholder="อธิบายเพิ่มเติมเกี่ยวกับเมนู"
             className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#00b14f] transition"
+            disabled={storeSuspended}
           />
         </div>
 
@@ -215,6 +262,7 @@ export default function MenuPage() {
             accept="image/*"
             onChange={(e) => setImageFile(e.target.files?.[0] || null)}
             className="w-full"
+            disabled={storeSuspended}
           />
         </div>
 
@@ -228,6 +276,7 @@ export default function MenuPage() {
               value={newAddOnName}
               onChange={(e) => setNewAddOnName(e.target.value)}
               className="border px-2 py-1 rounded w-32"
+              disabled={storeSuspended}
             />
             <input
               type="number"
@@ -235,11 +284,13 @@ export default function MenuPage() {
               value={newAddOnPrice}
               onChange={(e) => setNewAddOnPrice(e.target.value)}
               className="border px-2 py-1 rounded w-20"
+              disabled={storeSuspended}
             />
             <button
               type="button"
               onClick={handleAddAddOn}
               className="bg-[#00b14f] text-white px-3 rounded"
+              disabled={storeSuspended}
             >
               เพิ่ม
             </button>
@@ -252,6 +303,7 @@ export default function MenuPage() {
                   type="button"
                   onClick={() => handleRemoveAddOn(a.id)}
                   className="text-red-500 font-bold"
+                  disabled={storeSuspended}
                 >
                   ×
                 </button>
@@ -260,33 +312,41 @@ export default function MenuPage() {
           </div>
         </div>
 
+        {/* Buttons */}
         <div className="pt-4 flex gap-4">
-          <button
-            onClick={handleUpload}
-            disabled={isSaving}
-            className={`bg-[#00b14f] hover:bg-green-700 text-white px-6 py-2 rounded-lg font-semibold transition ${isSaving ? 'opacity-60 cursor-not-allowed' : ''}`}
-          >
-            {isSaving ? 'กำลังบันทึกเมนู...' : editId ? 'อัปเดตเมนู' : 'บันทึกเมนู'}
-          </button>
+        <button
+          onClick={handleUpload}
+          disabled={isSaving || storeSuspended || (!!editId && !isDirty)}
+          className={`bg-[#00b14f] hover:bg-green-700 text-white px-6 py-2 rounded-lg font-semibold transition ${
+            isSaving || storeSuspended || (!!editId && !isDirty) ? 'opacity-60 cursor-not-allowed' : ''
+          }`}
+        >
+          {isSaving ? 'กำลังบันทึกเมนู...' : editId ? 'อัปเดตเมนู' : 'บันทึกเมนู'}
+        </button>
 
-          {editId && (
-            <button
-              onClick={resetForm}
-              className="bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-2 rounded-lg transition"
-            >
-              ยกเลิก
-            </button>
-          )}
-        </div>
+        <button
+          onClick={resetForm}
+          className="bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-2 rounded-lg transition"
+          disabled={storeSuspended && !editId}
+        >
+          ยกเลิก
+        </button>
       </div>
 
-      {/* แสดงเมนู */}
+      </div>
+
+      {/* Menu List */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-        {menus.map((menu) => (
-          <div
-            key={menu._id}
-            className="border border-gray-200 rounded-2xl shadow-md hover:shadow-lg transition p-4 bg-white"
-          >
+  {menus.length === 0 ? (
+    <p className="text-center text-gray-500 col-span-full">
+      ตอนนี้ร้านยังไม่ได้เพิ่มเมนู
+    </p>
+  ) : 
+    menus.map((menu) => (
+      <div
+        key={menu._id}
+        className="border border-gray-200 rounded-2xl shadow-md hover:shadow-lg transition p-4 bg-white"
+      >
             {menu.image && (
               <Image
                 src={menu.image}
@@ -297,12 +357,9 @@ export default function MenuPage() {
               />
             )}
             <h2 className="text-lg font-bold text-gray-800">{menu.name}</h2>
-            <p className="text-green-600 font-semibold">{menu.price} บาท</p>
-            {menu.description && (
-              <p className="text-sm text-gray-500 mt-1">{menu.description}</p>
-            )}
+            <p className="text-[#00b14f] font-semibold">{menu.price} บาท</p>
+            {menu.description && <p className="text-sm text-gray-500 mt-1">{menu.description}</p>}
 
-            {/* แสดง Add-ons */}
             <div className="flex flex-wrap gap-2 mt-2">
               {menu.addOns?.map((a) => (
                 <span key={a.id} className="text-sm bg-gray-200 px-2 py-1 rounded">
@@ -315,12 +372,14 @@ export default function MenuPage() {
               <button
                 onClick={() => handleEdit(menu)}
                 className="text-[#00b14f] hover:underline"
+                disabled={storeSuspended}
               >
                 แก้ไข
               </button>
               <button
                 onClick={() => handleDelete(menu._id)}
                 className="text-red-500 hover:underline"
+                disabled={storeSuspended}
               >
                 ลบ
               </button>

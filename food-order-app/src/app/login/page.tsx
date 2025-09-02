@@ -7,11 +7,13 @@ export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
   const router = useRouter()
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setLoading(true)
 
     try {
       const res = await fetch('/api/auth/login', {
@@ -21,17 +23,25 @@ export default function LoginPage() {
       })
 
       const data = await res.json()
+
       if (!res.ok) {
-        throw new Error(data.error || 'Something went wrong')
+        throw new Error(data.error || 'เกิดข้อผิดพลาด')
       }
 
-      router.push('/dashboard')
+      // แยก redirect ตาม role
+      if (data.role === 'admin') {
+        router.push('/admin/dashboard')
+      } else {
+        router.push('/dashboard')
+      }
     } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message)
       } else {
         setError('เกิดข้อผิดพลาดบางอย่าง')
       }
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -63,9 +73,10 @@ export default function LoginPage() {
         />
         <button
           type="submit"
-          className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-colors"
+          disabled={loading}
+          className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors"
         >
-          เข้าสู่ระบบ
+          {loading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
         </button>
 
         <p className="text-center text-sm mt-2 text-gray-600">

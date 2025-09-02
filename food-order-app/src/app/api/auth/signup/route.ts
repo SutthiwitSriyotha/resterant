@@ -21,17 +21,20 @@ export async function POST(request: NextRequest) {
     const hashedPassword = await bcrypt.hash(password, 10)
 
     await db.collection('stores').insertOne({
-      name,
-      ownerName,
-      phone,
-      email,
-      password: hashedPassword,
-      createdAt: new Date(),
-      tableInfo: {
-        hasTables: !!hasTables,
-        tableCount: hasTables ? Number(tablesCount) : 0
-      }
-    })
+  name,
+  ownerName,
+  phone,
+  email,
+  password: hashedPassword,
+  createdAt: new Date(),
+  tableInfo: {
+    hasTables: !!hasTables,
+    tableCount: hasTables ? Number(tablesCount) : 0
+  },
+  role: 'store',       
+  isSuspended: false, 
+})
+
 
     return NextResponse.json({ message: 'สมัครสมาชิกสำเร็จ' }, { status: 201 })
   } catch (error) {

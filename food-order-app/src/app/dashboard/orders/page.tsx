@@ -3,7 +3,13 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 import {
-  FiCheckCircle, FiClock, FiBox, FiTruck, FiDollarSign, FiCheck, FiTrash2,
+  FiCheckCircle,
+  FiClock,
+  FiBox,
+  FiTruck,
+  FiDollarSign,
+  FiCheck,
+  FiTrash2,
 } from 'react-icons/fi';
 
 type AddOn = {
@@ -46,12 +52,23 @@ export default function DashboardOrdersPage() {
   const [loading, setLoading] = useState(false);
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
   const [showPaidOrders, setShowPaidOrders] = useState(false);
+  const [isSuspended, setIsSuspended] = useState(false);
 
   // ฟิลเตอร์เวลา
   const [timeRange, setTimeRange] = useState<'day' | 'week' | 'month'>('day');
-  const [selectedDate, setSelectedDate] = useState<string>(''); 
-  const [startDate, setStartDate] = useState<string>(''); 
-  const [endDate, setEndDate] = useState<string>('');   
+  const [selectedDate, setSelectedDate] = useState<string>('');
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
+
+  // โหลดข้อมูลร้าน
+  const fetchStoreInfo = async () => {
+    try {
+      const res = await axios.get('/api/auth/me', { withCredentials: true });
+      setIsSuspended(res.data?.user?.isSuspended || false);
+    } catch (err) {
+      console.error('โหลดข้อมูลร้านไม่สำเร็จ', err);
+    }
+  };
 
   // โหลดออเดอร์
   const fetchOrders = async () => {
@@ -71,26 +88,37 @@ export default function DashboardOrdersPage() {
   };
 
   useEffect(() => {
+    fetchStoreInfo();
     fetchOrders();
   }, []);
 
+  
   // อัปเดตสถานะออเดอร์
-  const updateStatus = async (orderId: string, newStatus: string) => {
-    if (updatingOrderId) return;
-    setUpdatingOrderId(orderId);
-    try {
-      const res = await axios.put('/api/order/updateStatus', { orderId, status: newStatus });
-      if (res.data.success) {
-        fetchOrders();
-      } else {
-        alert('อัปเดตสถานะล้มเหลว');
-      }
-    } catch (error) {
+const updateStatus = async (orderId: string, newStatus: string) => {
+  if (isSuspended || updatingOrderId) return;
+  setUpdatingOrderId(orderId);
+
+  try {
+    const res = await axios.put('/api/order/updateStatus', { orderId, status: newStatus });
+    if (res.data.success) {
+      fetchOrders();
+    } else {
+      alert(res.data.message || 'อัปเดตสถานะล้มเหลว');
+    }
+  } catch (error: any) {
+    if (error.response?.status === 403) {
+      alert('ร้านนี้ถูกระงับ ไม่สามารถอัปเดตสถานะได้');
+      setIsSuspended(true); // กันการกดต่อ
+    } else {
       alert('เกิดข้อผิดพลาดในการอัปเดตสถานะ');
       console.error(error);
     }
-    setUpdatingOrderId(null);
-  };
+  }
+
+  setUpdatingOrderId(null);
+};
+
+
 
   // ฟิลเตอร์ช่วงเวลา
   const filterByTimeRange = (orders: Order[]) => {
@@ -98,30 +126,24 @@ export default function DashboardOrdersPage() {
     return orders.filter((o) => {
       const orderDate = new Date(o.createdAt);
 
-      // ✅ ถ้าเลือกวันเดียว
       if (selectedDate) {
         const selected = new Date(selectedDate);
         return orderDate.toDateString() === selected.toDateString();
       }
 
-      // ✅ ถ้าเลือกช่วงวัน
       if (startDate && endDate) {
         const start = new Date(startDate);
         const end = new Date(endDate);
         return orderDate >= start && orderDate <= end;
       }
 
-      // ✅ ฟิลเตอร์ตามช่วงเวลา (day/week/month)
       if (timeRange === 'day') {
         return orderDate.toDateString() === now.toDateString();
       } else if (timeRange === 'week') {
         const diffDays = (now.getTime() - orderDate.getTime()) / (1000 * 60 * 60 * 24);
         return diffDays <= 7;
       } else if (timeRange === 'month') {
-        return (
-          orderDate.getMonth() === now.getMonth() &&
-          orderDate.getFullYear() === now.getFullYear()
-        );
+        return orderDate.getMonth() === now.getMonth() && orderDate.getFullYear() === now.getFullYear();
       }
       return true;
     });
@@ -141,11 +163,10 @@ export default function DashboardOrdersPage() {
 
   // ลบออเดอร์
   const deleteOrder = async (orderId: string) => {
+    if (isSuspended) return alert('ร้านถูกระงับ ไม่สามารถลบออเดอร์ได้');
     if (!confirm('คุณแน่ใจว่าจะลบออเดอร์นี้หรือไม่?')) return;
     try {
-      const res = await fetch(`/api/order/delete?orderId=${orderId}`, {
-        method: 'DELETE',
-      });
+      const res = await fetch(`/api/order/delete?orderId=${orderId}`, { method: 'DELETE' });
       const data = await res.json();
       if (data.success) {
         alert('ลบออเดอร์สำเร็จ');
@@ -165,15 +186,24 @@ export default function DashboardOrdersPage() {
         {showPaidOrders ? 'จัดการออเดอร์ร้านอาหารที่เสร็จสิ้นแล้ว' : 'จัดการออเดอร์ร้านอาหารที่ยังไม่เสร็จ'}
       </h1>
 
+      {isSuspended && (
+        <div className="mb-6 p-4 bg-red-100 text-red-700 font-semibold rounded-lg shadow">
+          ร้านนี้ถูกระงับ ดูข้อมูลได้เท่านั้น ไม่สามารถแก้ไข/ลบออเดอร์ได้
+        </div>
+      )}
 
       {!showPaidOrders && (
         <div className="flex justify-end">
           <div className="bg-red-100 text-red-700 font-bold px-4 py-2 rounded-lg shadow">
-            คิวที่เหลือ: {orders.filter(o => ['pending','accepted','preparing','finished','delivering'].includes(o.status)).length}
+            คิวที่เหลือ:{' '}
+            {orders.filter((o) =>
+              ['pending', 'accepted', 'preparing', 'finished', 'delivering'].includes(o.status)
+            ).length}
           </div>
         </div>
       )}
 
+      {/* ตัวเลือกการดู */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
         <button
           onClick={() => {
@@ -186,72 +216,71 @@ export default function DashboardOrdersPage() {
         </button>
 
         {showPaidOrders && (
-        <div className="flex flex-wrap items-center gap-4 bg-gray-50 p-4 rounded-md shadow-sm">
-          {/* ช่วงเวลาแบบ day/week/month */}
-          <div className="flex flex-col">
-            <label className="text-sm font-medium text-gray-600 mb-1">ช่วงเวลา</label>
-            <select
-              value={timeRange}
-              onChange={(e) => {
-                setSelectedDate('');
-                setStartDate('');
-                setEndDate('');
-                setTimeRange(e.target.value as 'day' | 'week' | 'month');
-              }}
-              className="border border-gray-300 px-3 py-2 rounded-md text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition"
-            >
-              <option value="day">วันนี้</option>
-              <option value="week">สัปดาห์นี้</option>
-              <option value="month">เดือนนี้</option>
-            </select>
-          </div>
+          <div className="flex flex-wrap items-center gap-4 bg-gray-50 p-4 rounded-md shadow-sm">
+            {/* เลือกช่วงเวลา */}
+            <div className="flex flex-col">
+              <label className="text-sm font-medium text-gray-600 mb-1">ช่วงเวลา</label>
+              <select
+                value={timeRange}
+                onChange={(e) => {
+                  setSelectedDate('');
+                  setStartDate('');
+                  setEndDate('');
+                  setTimeRange(e.target.value as 'day' | 'week' | 'month');
+                }}
+                className="border border-gray-300 px-3 py-2 rounded-md text-gray-700"
+              >
+                <option value="day">วันนี้</option>
+                <option value="week">สัปดาห์นี้</option>
+                <option value="month">เดือนนี้</option>
+              </select>
+            </div>
 
-          {/* เลือกวันเดียว */}
-          <div className="flex flex-col">
-            <label className="text-sm font-medium text-gray-600 mb-1">วันเดียว</label>
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => {
-                setSelectedDate(e.target.value);
-                setStartDate('');
-                setEndDate('');
-              }}
-              className="border border-gray-300 px-3 py-2 rounded-md text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition"
-            />
-          </div>
-
-          {/* เลือกช่วงวัน */}
-          <div className="flex flex-col">
-            <label className="text-sm font-medium text-gray-600 mb-1">ช่วงวันที่</label>
-            <div className="flex items-center gap-2">
+            {/* เลือกวันเดียว */}
+            <div className="flex flex-col">
+              <label className="text-sm font-medium text-gray-600 mb-1">วันเดียว</label>
               <input
                 type="date"
-                value={startDate}
+                value={selectedDate}
                 onChange={(e) => {
-                  setStartDate(e.target.value);
-                  setSelectedDate('');
+                  setSelectedDate(e.target.value);
+                  setStartDate('');
+                  setEndDate('');
                 }}
-                className="border border-gray-300 px-3 py-2 rounded-md text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition"
-              />
-              <span className="text-gray-500">ถึง</span>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => {
-                  setEndDate(e.target.value);
-                  setSelectedDate('');
-                }}
-                className="border border-gray-300 px-3 py-2 rounded-md text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition"
+                className="border border-gray-300 px-3 py-2 rounded-md text-gray-700"
               />
             </div>
-          </div>
-        </div>
-      )}
 
-        
+            {/* เลือกช่วงวัน */}
+            <div className="flex flex-col">
+              <label className="text-sm font-medium text-gray-600 mb-1">ช่วงวันที่</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => {
+                    setStartDate(e.target.value);
+                    setSelectedDate('');
+                  }}
+                  className="border border-gray-300 px-3 py-2 rounded-md text-gray-700"
+                />
+                <span className="text-gray-500">ถึง</span>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => {
+                    setEndDate(e.target.value);
+                    setSelectedDate('');
+                  }}
+                  className="border border-gray-300 px-3 py-2 rounded-md text-gray-700"
+                />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
+      {/* แสดงยอดรวมเมื่อดู paid */}
       {showPaidOrders && (
         <div className="bg-indigo-50 p-4 rounded-lg shadow-sm mb-6 flex justify-around text-base font-semibold text-gray-700">
           <p>
@@ -263,27 +292,12 @@ export default function DashboardOrdersPage() {
         </div>
       )}
 
+      {/* แสดงผลออเดอร์ */}
       {loading ? (
         <div className="flex justify-center py-12">
-          <svg
-            className="animate-spin h-10 w-10 text-indigo-400"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-          >
-            <circle
-              className="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              strokeWidth="4"
-            />
-            <path
-              className="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-            />
+          <svg className="animate-spin h-10 w-10 text-indigo-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
           </svg>
         </div>
       ) : sortedOrders.length === 0 ? (
@@ -291,27 +305,22 @@ export default function DashboardOrdersPage() {
       ) : (
         <div className="space-y-6">
           {sortedOrders.map((order) => (
-            <div
-              key={order._id}
-              className="bg-white rounded-lg shadow-md border border-gray-200 p-5 relative"
-            >
+            <div key={order._id} className="bg-white rounded-lg shadow-md border border-gray-200 p-5 relative">
               <div className="flex justify-between items-start mb-4 flex-wrap gap-3">
                 <div>
                   <p className="text-lg font-semibold text-gray-900">
                     {order.customerName && order.customerName.trim() !== ''
                       ? 'ชื่อลูกค้า:'
                       : order.tableNumber && order.tableNumber.trim() !== ''
-                        ? 'โต๊ะ:'
-                        : 'ไม่ระบุโต๊ะ/ลูกค้า'}{' '}
+                      ? 'โต๊ะ:'
+                      : 'ไม่ระบุโต๊ะ/ลูกค้า'}{' '}
                     <span className="text-indigo-700">
                       {order.customerName && order.customerName.trim() !== ''
                         ? order.customerName
                         : order.tableNumber || '-'}
                     </span>
                   </p>
-                  <p className="text-sm text-gray-500">
-                    สั่งเมื่อ: {new Date(order.createdAt).toLocaleString()}
-                  </p>
+                  <p className="text-sm text-gray-500">สั่งเมื่อ: {new Date(order.createdAt).toLocaleString()}</p>
                 </div>
 
                 <div className="text-right">
@@ -329,20 +338,12 @@ export default function DashboardOrdersPage() {
                   <p className="text-sm mt-1 text-gray-700">
                     สถานะปัจจุบัน:{' '}
                     {showPaidOrders ? (
-                      <span
-                        className={`inline-flex items-center gap-1 font-semibold rounded px-2 py-1 ${STATUS_LIST.find(
-                          (s) => s.key === 'paid'
-                        )?.colorClass}`}
-                      >
+                      <span className="inline-flex items-center gap-1 font-semibold rounded px-2 py-1 bg-green-600 text-white">
                         {STATUS_LIST.find((s) => s.key === 'paid')?.icon}
                         {STATUS_LIST.find((s) => s.key === 'paid')?.label}
                       </span>
                     ) : (
-                      <span
-                        className={`inline-flex items-center gap-1 font-semibold rounded px-2 py-1 ${STATUS_LIST.find(
-                          (s) => s.key === order.status
-                        )?.colorClass}`}
-                      >
+                      <span className="inline-flex items-center gap-1 font-semibold rounded px-2 py-1">
                         {STATUS_LIST.find((s) => s.key === order.status)?.icon}
                         {STATUS_LIST.find((s) => s.key === order.status)?.label || order.status}
                       </span>
@@ -358,12 +359,10 @@ export default function DashboardOrdersPage() {
                 {order.items.map((item, idx) => (
                   <li key={idx}>
                     <span className="font-medium">{item.name}</span> × {item.quantity}
-                    {item.comment && (
-                      <span className="italic text-green-800 ml-2">({item.comment})</span>
-                    )}
+                    {item.comment && <span className="italic text-green-800 ml-2">({item.comment})</span>}
                     {item.addOns && item.addOns.length > 0 && (
                       <span className="ml-2 text-blue-400 italic">
-                        [Addเพิ่มเติม: {item.addOns.map(a => `${a.name}(+${a.price})`).join(', ')}]
+                        [Addเพิ่มเติม: {item.addOns.map((a) => `${a.name}(+${a.price})`).join(', ')}]
                       </span>
                     )}
                   </li>
@@ -372,34 +371,32 @@ export default function DashboardOrdersPage() {
 
               {!showPaidOrders && (
                 <div className="flex flex-wrap gap-3">
-                  {STATUS_LIST.map((status) => {
-                    const isActive = order.status === status.key;
-                    return (
-                      <button
-                        key={status.key}
-                        disabled={updatingOrderId === order._id}
-                        onClick={() => updateStatus(order._id, status.key)}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-md shadow-sm transition
-                          ${
-                            isActive
-                              ? STATUS_LIST.find((s) => s.key === status.key)?.colorClass
-                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                          }
-                          ${updatingOrderId === order._id ? 'opacity-50 cursor-not-allowed' : ''}
-                        `}
-                      >
-                        {status.icon}
-                        {status.label}
-                      </button>
-                    );
-                  })}
+                  {STATUS_LIST.map((status) => (
+                    <button
+                      key={status.key}
+                      disabled={isSuspended || updatingOrderId === order._id}
+                      onClick={() => updateStatus(order._id, status.key)}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-md shadow-sm transition
+                        ${isSuspended ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                          : order.status === status.key
+                          ? STATUS_LIST.find((s) => s.key === status.key)?.colorClass
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}
+                        ${updatingOrderId === order._id ? 'opacity-50 cursor-not-allowed' : ''}
+                      `}
+                    >
+                      {status.icon}
+                      {status.label}
+                    </button>
+                  ))}
                 </div>
               )}
 
               <button
                 onClick={() => deleteOrder(order._id)}
-                disabled={updatingOrderId === order._id}
-                className="absolute bottom-4 right-4 text-red-600 hover:text-red-800 transition"
+                disabled={isSuspended || updatingOrderId === order._id}
+                className={`absolute bottom-4 right-4 ${
+                  isSuspended ? 'text-gray-400 cursor-not-allowed' : 'text-red-600 hover:text-red-800'
+                }`}
                 title="ลบออเดอร์"
               >
                 <FiTrash2 size={22} />

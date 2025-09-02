@@ -6,7 +6,8 @@ import { ObjectId } from 'mongodb';
 
 export async function PUT(req: NextRequest) {
   const token = req.cookies.get('token')?.value;
-  if (!token) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+  if (!token) 
+    return NextResponse.json({ success: false, message: 'Unauthorized: ไม่มี token' }, { status: 401 });
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET!);
@@ -27,6 +28,19 @@ export async function PUT(req: NextRequest) {
 
     const db = await connectDB();
 
+    // หา store เพื่อตรวจสอบสถานะ
+    const store = await db.collection('stores').findOne({ _id: new ObjectId(storeId) });
+    if (!store) {
+      return NextResponse.json({ success: false, message: 'Store not found' }, { status: 404 });
+    }
+
+    if (store.isSuspended) {
+      return NextResponse.json({ 
+        success: false, 
+        message: 'ร้านถูกระงับ ไม่สามารถแก้ไขเมนูได้' 
+      }, { status: 403 });
+    }
+
     // ตรวจสอบเมนูว่ามีและเป็นของร้านนี้จริงไหม
     const menu = await db.collection('menus').findOne({ _id: new ObjectId(menuId), storeId });
     if (!menu) {
@@ -38,15 +52,10 @@ export async function PUT(req: NextRequest) {
       name,
       price,
       description: description || '',
+      addOns: addOns || [],
       updatedAt: new Date(),
     };
-    if (image) {
-      updateData.image = image;
-    }
-
-    if (addOns) {
-      updateData.addOns = addOns;
-    }
+    if (image) updateData.image = image;
 
     // อัปเดตข้อมูลเมนู
     await db.collection('menus').updateOne(
@@ -55,8 +64,12 @@ export async function PUT(req: NextRequest) {
     );
 
     return NextResponse.json({ success: true, message: 'Menu updated successfully' });
+
   } catch (err) {
     console.error('Update menu error:', err);
-    return NextResponse.json({ success: false, message: 'Invalid token or internal error' }, { status: 401 });
+    return NextResponse.json(
+      { success: false, message: 'Invalid token or internal error' }, 
+      { status: 401 }
+    );
   }
 }
