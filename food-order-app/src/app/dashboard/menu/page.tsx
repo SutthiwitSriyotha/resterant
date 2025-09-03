@@ -32,6 +32,7 @@ export default function MenuPage() {
   const [storeSuspended, setStoreSuspended] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // ✅ state โหลด
   const formRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -50,6 +51,8 @@ export default function MenuPage() {
           return;
         }
         console.error('Failed to fetch menus:', err);
+      } finally {
+        setIsLoading(false); // ✅ โหลดเสร็จ
       }
     };
     fetchMenus();
@@ -77,7 +80,7 @@ export default function MenuPage() {
   const handleUpload = async () => {
     if (storeSuspended) {
       alert('ร้านถูกระงับ ไม่สามารถแก้ไขหรือเพิ่มเมนูได้');
-      return; // ป้องกันไม่ให้เรียก API
+      return;
     }
     if (!name || !price) return;
 
@@ -129,7 +132,6 @@ export default function MenuPage() {
       }
       resetForm();
     } catch (err: any) {
-      // จัดการร้านถูกระงับหรือ 403
       if (err.response?.status === 403) {
         alert('ร้านถูกระงับ ไม่สามารถบันทึกเมนูได้');
         return;
@@ -211,14 +213,17 @@ export default function MenuPage() {
       <h1 className="text-3xl font-bold mb-6 text-[#00b14f]">จัดการเมนูอาหาร</h1>
 
       {storeSuspended && (
-        <p className="text-red-600 font-semibold mb-4">ร้านถูกระงับ คุณไม่สามารถแก้ไขหรือเพิ่มเมนูได้กรุณาติดต่อผู้ดูแลระบบ</p>
+        <p className="text-red-600 font-semibold mb-4">
+          ร้านถูกระงับ คุณไม่สามารถแก้ไขหรือเพิ่มเมนูได้กรุณาติดต่อผู้ดูแลระบบ
+        </p>
       )}
 
+      {/* ฟอร์มจัดการเมนู */}
       <div
         ref={formRef}
         className="bg-gray-50 border border-gray-200 rounded-2xl shadow-lg p-6 space-y-5 mb-10"
       >
-        {/* Form fields */}
+        {/* ฟอร์ม */}
         <div className="space-y-1">
           <label className="block text-sm font-medium">ชื่อเมนู</label>
           <input
@@ -312,81 +317,80 @@ export default function MenuPage() {
           </div>
         </div>
 
-        {/* Buttons */}
+        {/* ปุ่ม */}
         <div className="pt-4 flex gap-4">
-        <button
-          onClick={handleUpload}
-          disabled={isSaving || storeSuspended || (!!editId && !isDirty)}
-          className={`bg-[#00b14f] hover:bg-green-700 text-white px-6 py-2 rounded-lg font-semibold transition ${
-            isSaving || storeSuspended || (!!editId && !isDirty) ? 'opacity-60 cursor-not-allowed' : ''
-          }`}
-        >
-          {isSaving ? 'กำลังบันทึกเมนู...' : editId ? 'อัปเดตเมนู' : 'บันทึกเมนู'}
-        </button>
+          <button
+            onClick={handleUpload}
+            disabled={isSaving || storeSuspended || (!!editId && !isDirty)}
+            className={`bg-[#00b14f] hover:bg-green-700 text-white px-6 py-2 rounded-lg font-semibold transition ${
+              isSaving || storeSuspended || (!!editId && !isDirty) ? 'opacity-60 cursor-not-allowed' : ''
+            }`}
+          >
+            {isSaving ? 'กำลังบันทึกเมนู...' : editId ? 'อัปเดตเมนู' : 'บันทึกเมนู'}
+          </button>
 
-        <button
-          onClick={resetForm}
-          className="bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-2 rounded-lg transition"
-          disabled={storeSuspended && !editId}
-        >
-          ยกเลิก
-        </button>
-      </div>
-      
-
+          <button
+            onClick={resetForm}
+            className="bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-2 rounded-lg transition"
+            disabled={storeSuspended && !editId}
+          >
+            ยกเลิก
+          </button>
+        </div>
       </div>
 
-      {/* Menu List */}
+      {/* รายการเมนู */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-  {menus.length === 0 ? (
-    <p className="text-center text-gray-500 col-span-full">
-      ตอนนี้ร้านยังไม่ได้เพิ่มเมนู
-    </p>
-  ) : 
-    menus.map((menu) => (
-      <div
-        key={menu._id}
-        className="border border-gray-200 rounded-2xl shadow-md hover:shadow-lg transition p-4 bg-white"
-      >
-            {menu.image && (
-              <Image
-                src={menu.image}
-                alt={menu.name}
-                width={500}
-                height={300}
-                className="rounded-xl object-cover w-full h-48 mb-3"
-              />
-            )}
-            <h2 className="text-lg font-bold text-gray-800">{menu.name}</h2>
-            <p className="text-[#00b14f] font-semibold">{menu.price} บาท</p>
-            {menu.description && <p className="text-sm text-gray-500 mt-1">{menu.description}</p>}
+        {isLoading ? (
+          <p className="text-center text-gray-500 col-span-full">กำลังโหลดเมนู...</p>
+        ) : menus.length === 0 ? (
+          <p className="text-center text-gray-500 col-span-full">ตอนนี้ร้านยังไม่ได้เพิ่มเมนู</p>
+        ) : (
+          menus.map((menu) => (
+            <div
+              key={menu._id}
+              className="border border-gray-200 rounded-2xl shadow-md hover:shadow-lg transition p-4 bg-white"
+            >
+              {menu.image && (
+                <Image
+                  src={menu.image}
+                  alt={menu.name}
+                  width={500}
+                  height={300}
+                  className="rounded-xl object-cover w-full h-48 mb-3"
+                />
+              )}
+              <h2 className="text-lg font-bold text-gray-800">{menu.name}</h2>
+              <p className="text-[#00b14f] font-semibold">{menu.price} บาท</p>
+              {menu.description && <p className="text-sm text-gray-500 mt-1">{menu.description}</p>}
 
-            <div className="flex flex-wrap gap-2 mt-2">
-              {menu.addOns?.map((a) => (
-                <span key={a.id} className="text-sm bg-gray-200 px-2 py-1 rounded">
-                  {a.name} +{a.price} บาท
-                </span>
-              ))}
-            </div>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {menu.addOns?.map((a) => (
+                  <span key={a.id} className="text-sm bg-gray-200 px-2 py-1 rounded">
+                    {a.name} +{a.price} บาท
+                  </span>
+                ))}
+              </div>
 
-            <div className="mt-4 flex gap-4 text-sm font-semibold">
-              <button
-                onClick={() => handleEdit(menu)}
-                className="text-[#00b14f] hover:underline"
-                disabled={storeSuspended}
-              >
-                แก้ไข
-              </button>
-              <button
-                onClick={() => handleDelete(menu._id)}
-                className="text-red-500 hover:underline"
-                disabled={storeSuspended}
-              >
-                ลบ
-              </button>
+              <div className="mt-4 flex gap-4 text-sm font-semibold">
+                <button
+                  onClick={() => handleEdit(menu)}
+                  className="text-[#00b14f] hover:underline"
+                  disabled={storeSuspended}
+                >
+                  แก้ไข
+                </button>
+                <button
+                  onClick={() => handleDelete(menu._id)}
+                  className="text-red-500 hover:underline"
+                  disabled={storeSuspended}
+                >
+                  ลบ
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
     </div>
   );

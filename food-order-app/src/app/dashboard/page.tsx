@@ -6,15 +6,31 @@ import { FaUserCircle, FaDownload } from 'react-icons/fa';
 import QRCode from 'react-qr-code';
 import useSWR from 'swr';
 import toast, { Toaster } from 'react-hot-toast';
+import axios from 'axios';   // 👈 ต้องมี
+
 
 interface AddOn { id: string; name: string; price: number; }
-interface Menu { _id: string; name: string; price: number; image?: string; description?: string; addOns?: AddOn[]; }
-interface Store { _id: string; name: string; profileImage?: string; tableInfo?: { hasTables: boolean; tableCount: number; }; }
+interface Menu { 
+  _id: string; 
+  name: string; 
+  price: number; 
+  image?: string; 
+  description?: string; 
+  addOns?: AddOn[]; 
+  isAvailable?: boolean;
+}
+interface Store { 
+  _id: string; 
+  name: string; 
+  profileImage?: string; 
+  tableInfo?: { hasTables: boolean; tableCount: number; }; 
+}
 
 const fetcher = (url: string) => fetch(url).then(res => res.json());
 
+
 export default function DashboardPage() {
-  const { data: menuData, isLoading: menuLoading } = useSWR('/api/store/menu/list', fetcher);
+  const { data: menuData, isLoading: menuLoading, mutate: mutateMenu } = useSWR('/api/store/menu/list', fetcher);
   const { data: storeData, isLoading: storeLoading, mutate: mutateStore } = useSWR('/api/store/profile', fetcher);
 
   const store: Store | null = storeData?.store || null;
@@ -31,9 +47,15 @@ export default function DashboardPage() {
   const [hasTables, setHasTables] = useState(true);
   const [tableCount, setTableCount] = useState(1);
 
-  // เก็บค่าเดิมก่อนแก้ไข เพื่อใช้ปุ่มยกเลิก
   const [originalHasTables, setOriginalHasTables] = useState(true);
   const [originalTableCount, setOriginalTableCount] = useState(1);
+
+  const [storeStatusToggle, setStoreStatusToggle] = useState<'active' | 'suspended'>('active');
+  useEffect(() => {
+  if (storeData?.store?.status) {
+    setStoreStatus(storeData.store.status);
+  }
+}, [storeData]);
 
   useEffect(() => {
     if (store?.tableInfo) {
@@ -74,6 +96,32 @@ export default function DashboardPage() {
     }
   };
 
+  const [storeStatus, setStoreStatus] = useState<'active' | 'temporaryClosed' | 'suspended'>('active');
+const [loading, setLoading] = useState(false);
+
+const toggleStoreStatus = async () => {
+  const newStatus = storeStatus === 'active' ? 'temporaryClosed' : 'active';
+  setLoading(true);
+
+  try {
+    const res = await axios.patch(`/api/store/toggleStatus`, { status: newStatus });
+    if (res.data.success) {
+      setStoreStatus(newStatus); // อัปเดต state ทันที
+      alert(`ร้านเปลี่ยนสถานะเป็น ${newStatus === 'active' ? 'เปิด' : 'ปิดชั่วคราว'} แล้ว`);
+      mutateStore(); // รีเฟรชข้อมูลร้าน
+    } else {
+      alert(res.data.message || 'เกิดข้อผิดพลาด');
+    }
+  } catch (err) {
+    console.error(err);
+    alert('เกิดข้อผิดพลาด');
+  } finally {
+    setLoading(false);
+  }
+};
+
+
+
   const cancelTableEdit = () => {
     setHasTables(originalHasTables);
     setTableCount(originalTableCount);
@@ -111,6 +159,28 @@ export default function DashboardPage() {
   };
 
   const disableTableSettings = storeLoading || !store?._id;
+
+  const toggleMenuAvailability = async (menu: Menu) => {
+    try {
+      const res = await fetch(`/api/store/menu/toggle?id=${menu._id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isAvailable: !menu.isAvailable }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`เมนู "${menu.name}" ${!menu.isAvailable ? 'เปิดขายแล้ว' : 'หยุดขายแล้ว'}`);
+        mutateMenu();
+      } else {
+        toast.error('ไม่สามารถอัปเดตสถานะเมนูได้');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('เกิดข้อผิดพลาด');
+    }
+  };
+
+  
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
@@ -163,7 +233,7 @@ export default function DashboardPage() {
         <div className="w-full md:w-64 bg-green-100 text-gray-900 flex md:flex-col flex-row p-2 md:p-4 gap-2 md:gap-4 overflow-x-auto md:overflow-auto">
           <button onClick={() => setActiveTab('table')} className={`flex-1 md:flex-none p-2 md:p-3 rounded-lg text-left border border-gray-300 shadow-sm ${activeTab==='table' ? 'bg-green-600 text-white shadow-lg' : 'bg-green-100 hover:bg-green-200'} transition text-sm md:text-base`}>ตั้งค่าโต๊ะร้าน</button>
           <button onClick={() => setActiveTab('qr')} className={`flex-1 md:flex-none p-2 md:p-3 rounded-lg text-left border border-gray-300 shadow-sm ${activeTab==='qr' ? 'bg-green-600 text-white shadow-lg' : 'bg-green-100 hover:bg-green-200'} transition text-sm md:text-base`}>QR สั่งอาหาร</button>
-          <button onClick={() => setActiveTab('menu')} className={`flex-1 md:flex-none p-2 md:p-3 rounded-lg text-left border border-gray-300 shadow-sm ${activeTab==='menu' ? 'bg-green-600 text-white shadow-lg' : 'bg-green-100 hover:bg-green-200'} transition text-sm md:text-base`}>เมนูที่เพิ่มไว้</button>
+          <button onClick={() => setActiveTab('menu')} className={`flex-1 md:flex-none p-2 md:p-3 rounded-lg text-left border border-gray-300 shadow-sm ${activeTab==='menu' ? 'bg-green-600 text-white shadow-lg' : 'bg-green-100 hover:bg-green-200'} transition text-sm md:text-base`}>อัพเดทสถานะเมนู</button>
         </div>
 
         {/* Content */}
@@ -229,22 +299,59 @@ export default function DashboardPage() {
           {/* เมนู */}
           {activeTab==='menu' && (
             <div className="bg-white rounded-xl shadow-md p-4 md:p-6 animate-slide-in">
-              <h2 className="text-base md:text-lg font-semibold mb-3 md:mb-4">เมนูที่เพิ่มไว้</h2>
-              {menuLoading ? <p>กำลังโหลดเมนูร้าน...</p> : menus.length===0 ? <p>ยังไม่มีเมนูอาหาร</p> :
+              <h2 className="text-base md:text-lg font-semibold mb-3 md:mb-4">อัพเดทสถานะเมนูที่เพิ่มไว้</h2>
+
+              {/* ปุ่มเปิด/ปิดร้าน */}
+              <div className="mb-4">
+                <button
+                  disabled={loading}
+                  onClick={toggleStoreStatus} // ไม่ต้องส่งค่าแล้ว
+                  className={`px-4 py-2 rounded-xl text-white ${
+                    storeStatus === 'active' ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-green-600 hover:bg-green-700'
+                  }`}
+                >
+                  {storeStatus === 'active' ? 'กดเพื่อปิดร้านชั่วคราว' : 'กดเพื่อเปิดร้าน'}
+                </button>
+
+
+              </div>
+
+              {menuLoading ? (
+                <p>กำลังโหลดเมนูร้าน...</p>
+              ) : menus.length===0 ? (
+                <p>ยังไม่มีเมนูอาหาร</p>
+              ) : (
                 <ul className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
                   {menus.map(menu => (
-                    <li key={menu._id} className="bg-gray-100 rounded-xl shadow-md p-3 md:p-4 flex flex-col gap-1 md:gap-2">
+                    <li
+                      key={menu._id}
+                      className={`rounded-xl shadow-md p-3 md:p-4 flex flex-col gap-2 border-2 transition
+                        ${menu.isAvailable ? 'border-green-500 bg-green-50' : 'border-red-500 bg-red-50'}`}
+                    >
                       {menu.image && <img src={menu.image} alt={menu.name} className="w-full h-32 md:h-40 object-cover rounded-lg"/>}
                       <h3 className="font-semibold text-sm md:text-base">{menu.name}</h3>
                       <p className="text-xs md:text-sm">ราคา: {menu.price} บาท</p>
                       {menu.description && <p className="text-xs md:text-sm">{menu.description}</p>}
-                      {menu.addOns && menu.addOns.length>0 && <div className="flex flex-wrap gap-1 text-xs md:text-sm">{menu.addOns.map(a=><span key={a.id} className="bg-gray-200 px-2 py-1 rounded-full">{a.name}+{a.price}</span>)}</div>}
+                      {menu.addOns && menu.addOns.length>0 && (
+                        <div className="flex flex-wrap gap-1 text-xs md:text-sm">
+                          {menu.addOns.map(a => <span key={a.id} className="bg-gray-200 px-2 py-1 rounded-full">{a.name}+{a.price}</span>)}
+                        </div>
+                      )}
+                      <button
+                        onClick={() => toggleMenuAvailability(menu)}
+                        className={`px-3 py-1 rounded-md text-white text-sm md:text-base transition ${
+                          menu.isAvailable ? 'bg-green-600 hover:bg-green-700' : 'bg-red-500 hover:bg-red-600'
+                        }`}
+                      >
+                        {menu.isAvailable ? 'เปลี่ยนเป็นไม่พร้อมขาย' : 'เปลี่ยนเป็นพร้อม'}
+                      </button>
                     </li>
                   ))}
                 </ul>
-              }
+              )}
             </div>
           )}
+
 
         </div>
       </div>

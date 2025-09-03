@@ -111,7 +111,7 @@ export default function AdminDashboard() {
         )
       )
       toast.success('ลบเมนูเรียบร้อย')
-      handleViewStore(selectedStore._id) // โหลดข้อมูลร้านใหม่
+      handleViewStore(selectedStore._id)
       setSelectedMenus(new Set())
     } catch {
       toast.error('ลบเมนูไม่สำเร็จ')
@@ -128,7 +128,7 @@ export default function AdminDashboard() {
         )
       )
       toast.success('ลบออเดอร์เรียบร้อย')
-      handleViewStore(selectedStore._id) // โหลดข้อมูลร้านใหม่
+      handleViewStore(selectedStore._id)
       setSelectedOrders(new Set())
     } catch {
       toast.error('ลบออเดอร์ไม่สำเร็จ')
@@ -139,60 +139,63 @@ export default function AdminDashboard() {
   if (!stores) return <p className="text-gray-600">กำลังโหลด...</p>
 
   return (
-    <div className="p-6 bg-white min-h-screen text-gray-800 relative">
+    <div className="p-4 sm:p-6 bg-white min-h-screen text-gray-800 relative">
       <Toaster />
 
       {/* ปุ่มออกจากระบบ */}
       <button
         onClick={handleLogout}
-        className="absolute top-6 right-6 px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded flex items-center gap-2"
+        className="absolute top-4 sm:top-6 right-4 sm:right-6 px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded flex items-center gap-2 text-sm sm:text-base"
       >
         <FaSignOutAlt /> ออกจากระบบ
       </button>
 
-      <h1 className="text-2xl font-bold mb-6">ระบบจัดการร้านค้า (Admin)</h1>
+      <h1 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">ระบบจัดการร้านค้า (Admin)</h1>
 
-      <table className="w-full border border-gray-200 shadow-sm">
-        <thead className="bg-gray-100 text-gray-700">
-          <tr>
-            <th className="p-2 text-left">ชื่อร้าน</th>
-            <th className="p-2 text-left">อีเมล</th>
-            <th className="p-2 text-left">วันที่สมัคร</th>
-            <th className="p-2 text-left">สถานะ</th>
-            <th className="p-2 text-left">จัดการ</th>
-          </tr>
-        </thead>
-        <tbody>
-          {stores.map((store: any) => (
-            <tr key={store._id} className="border-t border-gray-200 hover:bg-gray-50">
-              <td className="p-2">{store.name}</td>
-              <td className="p-2">{store.email}</td>
-              <td className="p-2">{new Date(store.createdAt).toLocaleDateString()}</td>
-              <td className="p-2">
-                <span className={`px-2 py-1 rounded text-sm ${store.isSuspended ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
-                  {store.isSuspended ? 'ระงับแล้ว' : 'ปกติ'}
-                </span>
-              </td>
-              <td className="p-2 flex gap-2">
-                <button onClick={() => handleDeleteStore(store._id)} className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600">ลบร้าน</button>
-                <button onClick={() => handleSuspend(store._id, !store.isSuspended)} className="px-3 py-1 bg-yellow-400 text-gray-900 rounded hover:bg-yellow-500">{store.isSuspended ? 'ปลดระงับ' : 'ระงับ'}</button>
-                <button onClick={() => handleViewStore(store._id)} className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600">ดูรายละเอียด</button>
-              </td>
+      {/* Table responsive */}
+      <div className="overflow-x-auto">
+        <table className="min-w-full border border-gray-200">
+          <thead className="bg-gray-100 text-gray-700">
+            <tr>
+              <th className="p-2 text-left">ชื่อร้าน</th>
+              <th className="p-2 text-left">อีเมล</th>
+              <th className="p-2 text-left hidden sm:table-cell">วันที่สมัคร</th>
+              <th className="p-2 text-left">สถานะ</th>
+              <th className="p-2 text-left">จัดการ</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {stores.map((store: any) => (
+              <tr key={store._id} className="border-t border-gray-200 hover:bg-gray-50">
+                <td className="p-2">{store.name}</td>
+                <td className="p-2">{store.email}</td>
+                <td className="p-2 hidden sm:table-cell">{new Date(store.createdAt).toLocaleDateString()}</td>
+                <td className="p-2">
+                  <span className={`px-2 py-1 rounded text-sm ${store.isSuspended ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+                    {store.isSuspended ? 'ระงับแล้ว' : 'ปกติ'}
+                  </span>
+                </td>
+                <td className="p-2 flex flex-wrap gap-2">
+                  <button onClick={() => handleDeleteStore(store._id)} className="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-sm">ลบร้าน</button>
+                  <button onClick={() => handleSuspend(store._id, !store.isSuspended)} className="px-2 py-1 bg-yellow-400 text-gray-900 rounded hover:bg-yellow-500 text-sm">{store.isSuspended ? 'ปลดระงับ' : 'ระงับ'}</button>
+                  <button onClick={() => handleViewStore(store._id)} className="px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm">ดูรายละเอียด</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       {/* Modal ดูรายละเอียดร้าน */}
       {selectedStore && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-xl w-11/12 max-w-4xl overflow-y-auto max-h-[85vh] shadow-lg">
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-lg w-full max-w-4xl sm:p-6 p-4 overflow-y-auto max-h-[85vh]">
             <div className="flex justify-between items-center border-b pb-3 mb-4">
-              <h2 className="text-xl font-bold text-gray-800">{selectedStore.name}</h2>
+              <h2 className="text-lg sm:text-xl font-bold text-gray-800">{selectedStore.name}</h2>
               <button onClick={() => setSelectedStore(null)} className="text-gray-500 hover:text-gray-700"><FaTimes size={20} /></button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
               <div>
                 <p><strong>ผู้ติดต่อ:</strong> {selectedStore.ownerName || '-'}</p>
                 <p><strong>เบอร์โทร:</strong> {selectedStore.phone || '-'}</p>
@@ -218,7 +221,7 @@ export default function AdminDashboard() {
                     </div>
                   ))}
                 </div>
-                {selectedMenus.size > 0 && <button onClick={handleDeleteSelectedMenus} className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 mb-4">ลบ {selectedMenus.size} เมนูที่เลือก</button>}
+                {selectedMenus.size > 0 && <button onClick={handleDeleteSelectedMenus} className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 mb-4 text-sm sm:text-base">ลบ {selectedMenus.size} เมนูที่เลือก</button>}
               </>
             ) : (
               <p className="text-gray-500 mb-6">ไม่มีเมนู</p>
@@ -238,7 +241,7 @@ export default function AdminDashboard() {
                     </div>
                   ))}
                 </div>
-                {selectedOrders.size > 0 && <button onClick={handleDeleteSelectedOrders} className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 mb-4">ลบ {selectedOrders.size} ออเดอร์ที่เลือก</button>}
+                {selectedOrders.size > 0 && <button onClick={handleDeleteSelectedOrders} className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 mb-4 text-sm sm:text-base">ลบ {selectedOrders.size} ออเดอร์ที่เลือก</button>}
               </>
             ) : (
               <p className="text-gray-500">ไม่มีออเดอร์</p>

@@ -17,6 +17,7 @@ interface MenuItem {
   image?: string;
   description?: string;
   addOns?: AddOn[];
+  isAvailable?: boolean;
 }
 
 interface OrderItem {
@@ -46,54 +47,63 @@ export default function OrderPage() {
   const [showOrderPopup, setShowOrderPopup] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [takenTables, setTakenTables] = useState<number[]>([]);
-  const [storeStatus, setStoreStatus] = useState<'active' | 'suspended' | 'deleted'>('active');
+  const [storeStatus, setStoreStatus] = useState<'active' | 'suspended' | 'deleted' | 'temporaryClosed'>('active');
+
+  
 
   // โหลดเมนูและสถานะร้าน
   useEffect(() => {
-    async function fetchMenus() {
-      try {
-        const res = await axios.get(`/api/store/${storeId}/menu/list`);
-        if (res.data.storeDeleted) {
-          setStoreStatus('deleted');
-          setMenus([]);
-        } else if (res.data.storeSuspended) {
-          setStoreStatus('suspended');
-          setMenus([]);
-        } else {
-          setStoreStatus('active');
-          setMenus(res.data.menus);
-        }
-      } catch (error) {
-        console.error('โหลดเมนูล้มเหลว', error);
+  async function fetchMenus() {
+    try {
+      const res = await axios.get(`/api/store/${storeId}/menu/list`);
+      if (res.data.storeDeleted) {
         setStoreStatus('deleted');
         setMenus([]);
-      } finally {
-        setLoadingMenus(false);
+      } else if (res.data.storeSuspended) {
+        setStoreStatus('suspended');
+        setMenus([]);
+      } else if (res.data.storeTemporaryClosed) {
+        setStoreStatus('temporaryClosed');
+        setMenus([]);
+      } else {
+        setStoreStatus('active');
+        const availableMenus = res.data.menus.filter((menu: any) => menu.isAvailable);
+        setMenus(availableMenus);
       }
-    }
 
-    async function fetchStoreInfo() {
-      try {
-        const res = await axios.get(`/api/store/${storeId}/info`);
-        if (!res.data.success) {
-          setStoreStatus('deleted');
-          return;
-        }
-        if (res.data.storeSuspended) {
-          setStoreStatus('suspended');
-        }
-        if (res.data.tableInfo) {
-          setHasTables(res.data.tableInfo.hasTables);
-          setMaxTableCount(res.data.tableInfo.tableCount || 0);
-        }
-      } catch (error) {
-        console.error('โหลดข้อมูลร้านล้มเหลว', error);
+
+    } catch (error) {
+      console.error('โหลดเมนูล้มเหลว', error);
+      setStoreStatus('deleted');
+      setMenus([]);
+    } finally {
+      setLoadingMenus(false);
+    }
+  }
+
+  async function fetchStoreInfo() {
+    try {
+      const res = await axios.get(`/api/store/${storeId}/info`);
+      if (!res.data.success) {
+        setStoreStatus('deleted');
+        return;
       }
+      if (res.data.storeSuspended) {
+        setStoreStatus('suspended');
+      }
+      if (res.data.tableInfo) {
+        setHasTables(res.data.tableInfo.hasTables);
+        setMaxTableCount(res.data.tableInfo.tableCount || 0);
+      }
+    } catch (error) {
+      console.error('โหลดข้อมูลร้านล้มเหลว', error);
     }
+  }
 
-    fetchMenus();
-    fetchStoreInfo();
-  }, [storeId]);
+  fetchMenus();
+  fetchStoreInfo();
+}, [storeId]);
+
 
   // โหลดโต๊ะที่ถูกจอง
   useEffect(() => {
@@ -300,11 +310,19 @@ export default function OrderPage() {
           ร้านนี้ถูกระงับอยู่ ไม่สามารถสั่งอาหารได้ชั่วคราว
         </div>
       )}
+
+      {storeStatus === 'temporaryClosed' && (
+        <div className="text-center text-yellow-600 text-lg font-bold py-10">
+          ตอนนี้ร้านยังไม่เปิด ขออภัยด้วย
+        </div>
+      )}
+
       {storeStatus === 'deleted' && (
         <div className="text-center text-red-600 text-lg font-bold py-10">
           ร้านนี้ไม่สามารถเข้าถึงได้ (ไม่มีร้านนี้)
         </div>
       )}
+
 
       {/* เมนูรายการอาหาร */}
       {storeStatus === 'active' && (
@@ -410,13 +428,13 @@ export default function OrderPage() {
             <div className="text-center text-gray-500 text-sm sm:text-base py-10">
               กำลังโหลดเมนู...
             </div>
-          ) : menus.length === 0 ? (
+          ) : menus.filter(menu => menu.isAvailable).length === 0 ? (
             <div className="text-center text-gray-500 text-sm sm:text-base py-10">
               ร้านนี้ยังไม่มีเมนู
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-4">
-              {menus.map((menu) => (
+              {menus.filter(menu => menu.isAvailable).map((menu) => (
                 <div
                   key={menu._id}
                   onClick={() => handleStartAdd(menu._id)}
@@ -450,6 +468,7 @@ export default function OrderPage() {
               ))}
             </div>
           )}
+
         </>
       )}
 

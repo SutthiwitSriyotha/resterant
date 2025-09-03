@@ -11,28 +11,40 @@ export async function GET(
 
   try {
     const db = await connectDB();
-    const store = await db
-      .collection('stores')
-      .findOne({ _id: new ObjectId(storeId) });
 
+    const store = await db.collection('stores').findOne({ _id: new ObjectId(storeId) });
+
+    // ร้านไม่พบ
     if (!store) {
       return NextResponse.json(
-        { success: false, storeDeleted: true, message: 'Store not found', menus: [] },
+        { success: false, storeDeleted: true, message: 'ร้านไม่พบ', menus: [] },
         { status: 404 }
       );
     }
 
-    // ✅ เช็กฟิลด์ isSuspended
+    // ร้านถูกระงับ
     if (store.isSuspended) {
       return NextResponse.json({
         success: true,
         storeSuspended: true,
         message: 'ร้านถูกระงับ',
         tableInfo: store.tableInfo || { hasTables: false, tableCount: 0 },
-        menus: [] // ป้องกัน error
+        menus: []
       });
     }
 
+    // ร้านปิดชั่วคราว
+    if (store.status === 'temporaryClosed') {
+      return NextResponse.json({
+        success: true,
+        storeTemporaryClosed: true,
+        message: 'ร้านปิดชั่วคราว',
+        tableInfo: store.tableInfo || { hasTables: false, tableCount: 0 },
+        menus: []
+      });
+    }
+
+    // ร้านเปิดปกติ
     const menus = await db
       .collection('menus')
       .find({ storeId: store._id.toString() })
@@ -41,13 +53,15 @@ export async function GET(
     return NextResponse.json({
       success: true,
       storeSuspended: false,
+      storeTemporaryClosed: false,
       tableInfo: store.tableInfo || { hasTables: false, tableCount: 0 },
       menus
     });
+
   } catch (err) {
-    console.error(err);
+    console.error('Error fetching store info:', err);
     return NextResponse.json(
-      { success: false, message: 'Internal error', menus: [] },
+      { success: false, message: 'Internal server error', menus: [] },
       { status: 500 }
     );
   }

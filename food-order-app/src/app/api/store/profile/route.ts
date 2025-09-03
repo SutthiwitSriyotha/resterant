@@ -22,7 +22,8 @@ export async function GET(req: NextRequest) {
           email: 1,
           createdAt: 1,
           tableInfo: 1,
-          profileImage: 1, // เพิ่ม field รูปโปรไฟล์
+          profileImage: 1,
+          status: 1, // 👈 เพิ่มส่งสถานะร้าน
         },
       }
     );

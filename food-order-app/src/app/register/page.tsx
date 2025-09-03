@@ -15,22 +15,61 @@ export default function RegisterPage() {
     email: '',
     password: '',
   })
+
+  const [errors, setErrors] = useState({
+    phone: '',
+    password: '',
+  })
+
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [submitError, setSubmitError] = useState('')
+
+  const validatePhone = (phone: string) => {
+    const phonePattern = /^(09|08|06)\d{8}$/
+    if (!phonePattern.test(phone)) {
+      return 'เบอร์โทรไม่ถูกต้อง ต้องมี 10 หลักและขึ้นต้นด้วย 09, 08 หรือ 06'
+    }
+    return ''
+  }
+
+  const validatePassword = (password: string) => {
+    const passwordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/
+    if (!passwordPattern.test(password)) {
+      return 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร, มีตัวพิมพ์ใหญ่, ตัวพิมพ์เล็ก และตัวเลข'
+    }
+    return ''
+  }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target
+    const newValue = type === 'checkbox' ? checked : value
+
     setForm({
       ...form,
-      [name]: type === 'checkbox' ? checked : value,
+      [name]: newValue,
     })
+
+    // ตรวจสอบ validation แบบ real-time
+    if (name === 'phone') {
+      setErrors({ ...errors, phone: validatePhone(newValue as string) })
+    }
+    if (name === 'password') {
+      setErrors({ ...errors, password: validatePassword(newValue as string) })
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
-    setError('')
+    setSubmitError('')
 
+    // ตรวจสอบ validation อีกครั้งก่อน submit
+    const phoneError = validatePhone(form.phone)
+    const passwordError = validatePassword(form.password)
+    setErrors({ phone: phoneError, password: passwordError })
+
+    if (phoneError || passwordError) return
+
+    setLoading(true)
     try {
       const res = await fetch('/api/auth/signup', {
         method: 'POST',
@@ -46,31 +85,27 @@ export default function RegisterPage() {
 
       router.push('/login')
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message)
-      } else {
-        setError('เกิดข้อผิดพลาดบางอย่าง')
-      }
+      if (err instanceof Error) setSubmitError(err.message)
+      else setSubmitError('เกิดข้อผิดพลาดบางอย่าง')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50">
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
       <form
         onSubmit={handleSubmit}
         className="w-full max-w-md space-y-4 bg-white p-8 rounded-xl shadow-lg border border-gray-200"
       >
         <h1 className="text-2xl font-bold text-center text-gray-800">สมัครเปิดร้าน</h1>
-        
+
         <p className="text-sm text-gray-600 text-center">
-          ลงทะเบียนเพื่อเปิดร้านอาหารของคุณบนระบบ  
-          ลูกค้าสามารถสแกน QR Code เพื่อสั่งอาหาร  
+          ลงทะเบียนเพื่อเปิดร้านอาหารของคุณบนระบบ ลูกค้าสามารถสแกน QR Code เพื่อสั่งอาหาร
           และคุณสามารถจัดการเมนู ตรวจสอบออเดอร์ และยืนยันการชำระเงินได้สะดวก
         </p>
 
-        {error && <p className="text-red-600">{error}</p>}
+        {submitError && <p className="text-red-600">{submitError}</p>}
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">ชื่อร้านของคุณ</label>
@@ -107,8 +142,11 @@ export default function RegisterPage() {
             value={form.phone}
             onChange={handleChange}
             required
-            className="w-full px-4 py-2 rounded-md border border-gray-300 text-gray-900"
+            className={`w-full px-4 py-2 rounded-md border ${
+              errors.phone ? 'border-red-500' : 'border-gray-300'
+            } text-gray-900`}
           />
+          {errors.phone && <p className="text-red-500 text-sm mt-1">{errors.phone}</p>}
         </div>
 
         <div className="flex items-center gap-2">
@@ -155,12 +193,15 @@ export default function RegisterPage() {
           <input
             type="password"
             name="password"
-            placeholder="อย่างน้อย 8 ตัวอักษร"
+            placeholder="อย่างน้อย 8 ตัวอักษร มีตัวพิมพ์ใหญ่, เล็ก และตัวเลข"
             value={form.password}
             onChange={handleChange}
             required
-            className="w-full px-4 py-2 rounded-md border border-gray-300 text-gray-900"
+            className={`w-full px-4 py-2 rounded-md border ${
+              errors.password ? 'border-red-500' : 'border-gray-300'
+            } text-gray-900`}
           />
+          {errors.password && <p className="text-red-500 text-sm mt-1">{errors.password}</p>}
         </div>
 
         <button
