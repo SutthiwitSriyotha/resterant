@@ -1,11 +1,9 @@
-// src/app/api/store/menu/save/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import { connectDB } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 
 export async function POST(req: NextRequest) {
-  // ดึง token จาก cookies
   const token = req.cookies.get('token')?.value;
   if (!token) {
     return NextResponse.json(
@@ -15,27 +13,24 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // ตรวจสอบ token
     const decoded = jwt.verify(token, process.env.JWT_SECRET!);
     const storeId = (decoded as any).id;
 
     const db = await connectDB();
 
-    // หา store
     const store = await db.collection('stores').findOne({ _id: new ObjectId(storeId) });
     if (!store) {
       return NextResponse.json({ success: false, message: 'Store not found' }, { status: 404 });
     }
 
-    // ✅ ตรวจสอบว่าร้านถูกระงับหรือไม่
+    // ✅ เช็คว่าร้านถูกระงับหรือไม่
     if (store.isSuspended) {
-      return NextResponse.json({
-        success: false,
-        message: 'ร้านถูกระงับ ไม่สามารถเพิ่มเมนูได้',
-      }, { status: 403 });
+      return NextResponse.json(
+        { success: false, message: 'ร้านถูกระงับ ไม่สามารถเพิ่มเมนูได้' },
+        { status: 403 }
+      );
     }
 
-    // ดึงข้อมูลเมนูจาก request
     const body = await req.json();
     const menus = body.menus;
 
@@ -43,11 +38,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: 'No menus provided' }, { status: 400 });
     }
 
-    // เพิ่มเมนูลง DB
+    // ✅ เพิ่มเมนูใหม่ พร้อมค่า isAvailable = true
     const result = await db.collection('menus').insertMany(
       menus.map((menu: any) => ({
         ...menu,
         addOns: menu.addOns || [],
+        isAvailable: true, // ค่าเริ่มต้น = เปิดขาย
         storeId,
         storeName: store.name,
         createdAt: new Date(),

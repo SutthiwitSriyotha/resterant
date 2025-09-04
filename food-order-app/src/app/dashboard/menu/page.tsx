@@ -125,10 +125,12 @@ export default function MenuPage() {
         if (res.data.success) {
           const newMenu = {
             ...menuData,
+            isAvailable: true, // ✅ ตรงนี้ด้วย
             _id: res.data.insertedIds?.[0] || `${Date.now()}`,
           };
           setMenus((prev) => [...prev, newMenu]);
         }
+
       }
       resetForm();
     } catch (err: any) {

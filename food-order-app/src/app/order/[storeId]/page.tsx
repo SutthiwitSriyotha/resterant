@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation'; // เพิ่ม useSearchParams
 import axios from 'axios';
 
 interface AddOn {
@@ -33,11 +33,12 @@ export default function OrderPage() {
   const router = useRouter();
   const params = useParams();
   const storeId = params.storeId as string;
+  const searchParams = useSearchParams(); // 👈 ดึง query string
 
   const [menus, setMenus] = useState<MenuItem[]>([]);
   const [loadingMenus, setLoadingMenus] = useState(true);
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
-  const [tableNumber, setTableNumber] = useState('');
+  const [tableNumber, setTableNumber] = useState(''); // 🟢 จะถูกตั้งค่าอัตโนมัติจาก query
   const [addingMenuId, setAddingMenuId] = useState<string | null>(null);
   const [addQuantity, setAddQuantity] = useState(1);
   const [addComment, setAddComment] = useState('');
@@ -49,61 +50,64 @@ export default function OrderPage() {
   const [takenTables, setTakenTables] = useState<number[]>([]);
   const [storeStatus, setStoreStatus] = useState<'active' | 'suspended' | 'deleted' | 'temporaryClosed'>('active');
 
-  
+  // 🟢 โหลดโต๊ะจาก query string
+  useEffect(() => {
+    const tableFromQuery = searchParams.get('table');
+    if (tableFromQuery) {
+      setTableNumber(tableFromQuery); // ถ้ามี ?table=1 จะตั้งค่าให้อัตโนมัติ
+    }
+  }, [searchParams]);
 
   // โหลดเมนูและสถานะร้าน
   useEffect(() => {
-  async function fetchMenus() {
-    try {
-      const res = await axios.get(`/api/store/${storeId}/menu/list`);
-      if (res.data.storeDeleted) {
+    async function fetchMenus() {
+      try {
+        const res = await axios.get(`/api/store/${storeId}/menu/list`);
+        if (res.data.storeDeleted) {
+          setStoreStatus('deleted');
+          setMenus([]);
+        } else if (res.data.storeSuspended) {
+          setStoreStatus('suspended');
+          setMenus([]);
+        } else if (res.data.storeTemporaryClosed) {
+          setStoreStatus('temporaryClosed');
+          setMenus([]);
+        } else {
+          setStoreStatus('active');
+          const availableMenus = res.data.menus.filter((menu: any) => menu.isAvailable);
+          setMenus(availableMenus);
+        }
+      } catch (error) {
+        console.error('โหลดเมนูล้มเหลว', error);
         setStoreStatus('deleted');
         setMenus([]);
-      } else if (res.data.storeSuspended) {
-        setStoreStatus('suspended');
-        setMenus([]);
-      } else if (res.data.storeTemporaryClosed) {
-        setStoreStatus('temporaryClosed');
-        setMenus([]);
-      } else {
-        setStoreStatus('active');
-        const availableMenus = res.data.menus.filter((menu: any) => menu.isAvailable);
-        setMenus(availableMenus);
+      } finally {
+        setLoadingMenus(false);
       }
-
-
-    } catch (error) {
-      console.error('โหลดเมนูล้มเหลว', error);
-      setStoreStatus('deleted');
-      setMenus([]);
-    } finally {
-      setLoadingMenus(false);
     }
-  }
 
-  async function fetchStoreInfo() {
-    try {
-      const res = await axios.get(`/api/store/${storeId}/info`);
-      if (!res.data.success) {
-        setStoreStatus('deleted');
-        return;
+    async function fetchStoreInfo() {
+      try {
+        const res = await axios.get(`/api/store/${storeId}/info`);
+        if (!res.data.success) {
+          setStoreStatus('deleted');
+          return;
+        }
+        if (res.data.storeSuspended) {
+          setStoreStatus('suspended');
+        }
+        if (res.data.tableInfo) {
+          setHasTables(res.data.tableInfo.hasTables);
+          setMaxTableCount(res.data.tableInfo.tableCount || 0);
+        }
+      } catch (error) {
+        console.error('โหลดข้อมูลร้านล้มเหลว', error);
       }
-      if (res.data.storeSuspended) {
-        setStoreStatus('suspended');
-      }
-      if (res.data.tableInfo) {
-        setHasTables(res.data.tableInfo.hasTables);
-        setMaxTableCount(res.data.tableInfo.tableCount || 0);
-      }
-    } catch (error) {
-      console.error('โหลดข้อมูลร้านล้มเหลว', error);
     }
-  }
 
-  fetchMenus();
-  fetchStoreInfo();
-}, [storeId]);
-
+    fetchMenus();
+    fetchStoreInfo();
+  }, [storeId]);
 
   // โหลดโต๊ะที่ถูกจอง
   useEffect(() => {
@@ -120,6 +124,7 @@ export default function OrderPage() {
     }
     fetchTakenTables();
   }, [storeId, hasTables]);
+
 
   // ฟังก์ชันจัดการเมนู
   const handleStartAdd = (menuId: string, index?: number, fromPopup = false) => {
@@ -240,6 +245,23 @@ export default function OrderPage() {
       alert('เกิดข้อผิดพลาดในการสั่งอาหาร');
     }
   };
+  
+  useEffect(() => {
+  const tableFromQuery = searchParams.get('table');
+  if (tableFromQuery) {
+    const tableNum = Number(tableFromQuery);
+
+    if (hasTables && maxTableCount > 0 && (tableNum < 1 || tableNum > maxTableCount)) {
+      alert(`ร้านนี้มีแค่ ${maxTableCount} โต๊ะ`);
+      setTableNumber(''); // 🟢 ล้างค่า tableNumber ก่อน
+      router.replace(`/order/${storeId}`); // redirect แบบไม่ใส่ table
+      return;
+    }
+
+    setTableNumber(tableFromQuery); // ตั้งโต๊ะอัตโนมัติจาก query
+  }
+}, [searchParams, hasTables, maxTableCount, storeId, router]);
+
 
   return (
     <div className="max-w-5xl mx-auto p-6 bg-white min-h-screen text-black font-sans">
@@ -249,35 +271,46 @@ export default function OrderPage() {
       {storeStatus === 'active' && (
         <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between max-w-5xl mx-auto gap-4">
           <div className="flex-1 max-w-md p-5 bg-gray-50 rounded-2xl shadow-md border border-gray-200">
-            <label htmlFor="tableNumber" className="block text-base font-semibold mb-2 text-gray-900">
-              เลือกโต๊ะที่นั่งของท่าน
-            </label>
-            {hasTables ? (
-              <select
-                id="tableNumber"
-                value={tableNumber}
-                onChange={(e) => setTableNumber(e.target.value)}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-base text-black shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 transition"
-              >
-                <option value="">เลือกโต๊ะที่นั่งของท่านได้เลย</option>
-                {Array.from({ length: maxTableCount }, (_, i) => i + 1)
-                  .filter(num => !takenTables.includes(num))
-                  .map(num => (
-                    <option key={num} value={num}>
-                      โต๊ะ {num}
-                    </option>
-                  ))}
-              </select>
-            ) : (
-              <input
-                type="text"
-                placeholder="ทางร้านไม่มีโต๊ะ พิมพ์ชื่อเล่นได้เลย"
-                value={tableNumber}
-                onChange={(e) => setTableNumber(e.target.value)}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-base text-black shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition"
-              />
-            )}
-          </div>
+  {tableNumber ? (
+    // 🟢 ถ้ามี table จาก URL และถูกต้อง ให้แสดงข้อความเฉยๆ
+    <p className="text-base font-semibold text-gray-900">
+      โต๊ะที่นั่งของคุณ: โต๊ะ {tableNumber}
+    </p>
+  ) : (
+    // 🟡 ถ้าไม่มี table ให้เลือก/กรอกเหมือนเดิม
+    <>
+      <label htmlFor="tableNumber" className="block text-base font-semibold mb-2 text-gray-900">
+        เลือกโต๊ะที่นั่งของท่าน
+      </label>
+      {hasTables ? (
+        <select
+          id="tableNumber"
+          value={tableNumber}
+          onChange={(e) => setTableNumber(e.target.value)}
+          className="w-full rounded-md border border-gray-300 px-3 py-2 text-base text-black shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 transition"
+        >
+          <option value="">เลือกโต๊ะที่นั่งของท่านได้เลย</option>
+          {Array.from({ length: maxTableCount }, (_, i) => i + 1)
+            .filter(num => !takenTables.includes(num))
+            .map(num => (
+              <option key={num} value={num}>
+                โต๊ะ {num}
+              </option>
+            ))}
+        </select>
+      ) : (
+        <input
+          type="text"
+          placeholder="ทางร้านไม่มีโต๊ะ พิมพ์ชื่อเล่นได้เลย"
+          value={tableNumber}
+          onChange={(e) => setTableNumber(e.target.value)}
+          className="w-full rounded-md border border-gray-300 px-3 py-2 text-base text-black shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition"
+        />
+      )}
+    </>
+  )}
+</div>
+
 
           <div className="flex gap-2 relative">
             <button
@@ -303,6 +336,7 @@ export default function OrderPage() {
           </div>
         </div>
       )}
+
 
       {/* แสดงสถานะร้าน */}
       {storeStatus === 'suspended' && (
