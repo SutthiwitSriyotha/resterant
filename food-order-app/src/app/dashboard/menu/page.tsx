@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import axios from 'axios';
+import toast, { Toaster } from 'react-hot-toast';
 
 interface AddOn {
   id: string;
@@ -29,10 +30,11 @@ export default function MenuPage() {
   const [addOnsArray, setAddOnsArray] = useState<AddOn[]>([]);
   const [newAddOnName, setNewAddOnName] = useState('');
   const [newAddOnPrice, setNewAddOnPrice] = useState('');
+  const [editAddOnId, setEditAddOnId] = useState<string | null>(null);
   const [storeSuspended, setStoreSuspended] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
-  const [isLoading, setIsLoading] = useState(true); // ✅ state โหลด
+  const [isLoading, setIsLoading] = useState(true);
   const formRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -50,9 +52,10 @@ export default function MenuPage() {
           window.location.href = '/login';
           return;
         }
+        toast.error('ไม่สามารถโหลดเมนูได้');
         console.error('Failed to fetch menus:', err);
       } finally {
-        setIsLoading(false); // ✅ โหลดเสร็จ
+        setIsLoading(false);
       }
     };
     fetchMenus();
@@ -79,10 +82,13 @@ export default function MenuPage() {
 
   const handleUpload = async () => {
     if (storeSuspended) {
-      alert('ร้านถูกระงับ ไม่สามารถแก้ไขหรือเพิ่มเมนูได้');
+      toast.error('ร้านถูกระงับ ไม่สามารถแก้ไขหรือเพิ่มเมนูได้');
       return;
     }
-    if (!name || !price) return;
+    if (!name || !price) {
+      toast.error('กรุณากรอกชื่อและราคาของเมนู');
+      return;
+    }
 
     setIsSaving(true);
     try {
@@ -119,29 +125,31 @@ export default function MenuPage() {
               item._id === editId ? { ...item, ...menuData, _id: editId } : item
             )
           );
+          toast.success('อัปเดตเมนูเรียบร้อย');
         }
       } else {
         const res = await axios.post('/api/store/menu/save', { menus: [menuData] }, { withCredentials: true });
         if (res.data.success) {
           const newMenu = {
             ...menuData,
-            isAvailable: true, // ✅ ตรงนี้ด้วย
+            isAvailable: true,
             _id: res.data.insertedIds?.[0] || `${Date.now()}`,
           };
           setMenus((prev) => [...prev, newMenu]);
+          toast.success('เพิ่มเมนูเรียบร้อย');
         }
-
       }
       resetForm();
     } catch (err: any) {
       if (err.response?.status === 403) {
-        alert('ร้านถูกระงับ ไม่สามารถบันทึกเมนูได้');
+        toast.error('ร้านถูกระงับ ไม่สามารถบันทึกเมนูได้');
         return;
       }
       if (err.response?.status === 401) {
         window.location.href = '/login';
         return;
       }
+      toast.error('เกิดข้อผิดพลาดในการบันทึกเมนู');
       console.error('Error saving menu:', err);
     }
   };
@@ -155,12 +163,13 @@ export default function MenuPage() {
     setAddOnsArray([]);
     setNewAddOnName('');
     setNewAddOnPrice('');
+    setEditAddOnId(null);
     setIsDirty(false);
   };
 
   const handleEdit = (menu: MenuItem) => {
     if (storeSuspended) {
-      alert('ร้านถูกระงับ ไม่สามารถแก้ไขเมนูได้');
+      toast.error('ร้านถูกระงับ ไม่สามารถแก้ไขเมนูได้');
       return;
     }
     setName(menu.name);
@@ -172,46 +181,113 @@ export default function MenuPage() {
     formRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const handleDelete = async (id?: string) => {
+  // ลบเมนูแบบ Toaster ยืนยัน
+  const handleDelete = (id?: string) => {
     if (storeSuspended) {
-      alert('ร้านถูกระงับ ไม่สามารถลบเมนูได้');
+      toast.error('ร้านถูกระงับ ไม่สามารถลบเมนูได้');
       return;
     }
-    if (!id || !confirm('ต้องการลบเมนูนี้หรือไม่?')) return;
-    try {
-      const res = await axios.delete(`/api/store/menu/delete?id=${id}`, { withCredentials: true });
-      if (res.data.success) {
-        setMenus((prev) => prev.filter((menu) => menu._id !== id));
-      }
-    } catch (err: any) {
-      if (err.response?.status === 403) {
-        alert('ร้านถูกระงับ ไม่สามารถลบเมนูได้');
-        return;
-      }
-      if (err.response?.status === 401) {
-        window.location.href = '/login';
-        return;
-      }
-      console.error('Failed to delete menu:', err);
-    }
+    if (!id) return;
+
+     toast(
+      (t) => (
+        <div className="flex flex-col gap-2">
+          <span className=" font-medium">คุณแน่ใจว่าจะลบเมนูนี้หรือไม่?</span>
+          <div className="flex gap-2 justify-end mt-2">
+            <button
+              className="px-3 py-1 bg-gray-400 rounded hover:bg-gray-700 text-white"
+              onClick={() => toast.dismiss(t.id)}
+            >
+              ยกเลิก
+            </button>
+            <button
+              className="px-3 py-1 bg-red-500 rounded hover:bg-red-600 text-white"
+              onClick={async () => {
+                try {
+                  const res = await fetch(`/api/store/menu/delete?id=${id}`, { method: 'DELETE', credentials: 'include' });
+                  const data = await res.json();
+                  if (data.success) {
+                    setMenus((prev) => prev.filter((menu) => menu._id !== id));
+                    toast.success('ลบเมนูเรียบร้อย');
+                  } else {
+                    toast.error(`ลบเมนูไม่สำเร็จ: ${data.message}`);
+                  }
+                } catch (err) {
+                  toast.error('เกิดข้อผิดพลาดในการลบเมนู');
+                  console.error(err);
+                } finally {
+                  toast.dismiss(t.id);
+                }
+              }}
+            >
+              ยืนยัน
+            </button>
+          </div>
+        </div>
+      ),
+      { duration: Infinity, position: 'top-center' }
+    );
   };
 
+  // เพิ่ม / แก้ไข Add-on
   const handleAddAddOn = () => {
-    if (!newAddOnName || !newAddOnPrice) return;
-    setAddOnsArray((prev) => [
-      ...prev,
-      { id: Date.now().toString(), name: newAddOnName, price: parseFloat(newAddOnPrice) },
-    ]);
+    if (!newAddOnName || !newAddOnPrice) {
+      toast.error('กรุณากรอกชื่อและราคาของ Add-on');
+      return;
+    }
+
+    if (editAddOnId) {
+      setAddOnsArray((prev) =>
+        prev.map((a) =>
+          a.id === editAddOnId ? { ...a, name: newAddOnName, price: parseFloat(newAddOnPrice) } : a
+        )
+      );
+      toast.success('อัปเดต Add-on เรียบร้อย');
+      setEditAddOnId(null);
+    } else {
+      setAddOnsArray((prev) => [
+        ...prev,
+        { id: Date.now().toString(), name: newAddOnName, price: parseFloat(newAddOnPrice) },
+      ]);
+      toast.success('เพิ่ม Add-on เรียบร้อย');
+    }
+
     setNewAddOnName('');
     setNewAddOnPrice('');
   };
 
+  const handleEditAddOn = (addOn: AddOn) => {
+    setNewAddOnName(addOn.name);
+    setNewAddOnPrice(addOn.price.toString());
+    setEditAddOnId(addOn.id);
+  };
+
   const handleRemoveAddOn = (id: string) => {
     setAddOnsArray((prev) => prev.filter((a) => a.id !== id));
+    toast.success('ลบ Add-on เรียบร้อย');
   };
 
   return (
     <div className="bg-white min-h-screen p-5 md:p-8 max-w-4xl mx-auto text-gray-900">
+      {/* Toaster */}
+      <Toaster
+        position="top-center"
+        toastOptions={{
+          duration: 3000,
+          style: {
+            background: '#333',
+            color: '#fff',
+            fontSize: '16px',
+            padding: '12px 24px',
+            borderRadius: '12px',
+            textAlign: 'center',
+            minWidth: '250px',
+          },
+          success: { style: { background: '#16a34a' } },
+          error: { style: { background: '#dc2626' } },
+        }}
+      />
+
       <h1 className="text-3xl font-bold mb-6 text-[#00b14f]">จัดการเมนูอาหาร</h1>
 
       {storeSuspended && (
@@ -221,11 +297,8 @@ export default function MenuPage() {
       )}
 
       {/* ฟอร์มจัดการเมนู */}
-      <div
-        ref={formRef}
-        className="bg-gray-50 border border-gray-200 rounded-2xl shadow-lg p-6 space-y-5 mb-10"
-      >
-        {/* ฟอร์ม */}
+      <div ref={formRef} className="bg-gray-50 border border-gray-200 rounded-2xl shadow-lg p-6 space-y-5 mb-10">
+        {/* ชื่อเมนู */}
         <div className="space-y-1">
           <label className="block text-sm font-medium">ชื่อเมนู</label>
           <input
@@ -233,11 +306,12 @@ export default function MenuPage() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="เช่น ข้าวหมูแดง"
-            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#00b14f] transition"
+            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#00b14f]"
             disabled={storeSuspended}
           />
         </div>
 
+        {/* ราคา */}
         <div className="space-y-1">
           <label className="block text-sm font-medium">ราคา (บาท)</label>
           <input
@@ -245,11 +319,12 @@ export default function MenuPage() {
             value={price}
             onChange={(e) => setPrice(e.target.value)}
             placeholder="เช่น 60"
-            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#00b14f] transition"
+            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#00b14f]"
             disabled={storeSuspended}
           />
         </div>
 
+        {/* คำอธิบาย */}
         <div className="space-y-1">
           <label className="block text-sm font-medium">คำอธิบาย (ถ้ามี)</label>
           <input
@@ -257,11 +332,12 @@ export default function MenuPage() {
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="อธิบายเพิ่มเติมเกี่ยวกับเมนู"
-            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#00b14f] transition"
+            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#00b14f]"
             disabled={storeSuspended}
           />
         </div>
 
+        {/* Upload รูป */}
         <div className="space-y-1">
           <label className="block text-sm font-medium">อัปโหลดรูป</label>
           <input
@@ -276,6 +352,8 @@ export default function MenuPage() {
         {/* Add-ons */}
         <div className="space-y-2 border-t pt-4">
           <h3 className="text-sm font-semibold text-gray-700 mb-2">Add-ons</h3>
+
+          {/* ฟอร์มเพิ่ม / อัปเดต Add-on */}
           <div className="flex gap-2 mb-2">
             <input
               type="text"
@@ -299,22 +377,39 @@ export default function MenuPage() {
               className="bg-[#00b14f] text-white px-3 rounded"
               disabled={storeSuspended}
             >
-              เพิ่ม
+              {editAddOnId ? 'อัปเดต' : 'เพิ่ม'}
             </button>
           </div>
-          <div className="flex flex-wrap gap-2">
+
+          {/* แสดงรายการ Add-on */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {addOnsArray.map((a) => (
-              <span key={a.id} className="text-sm bg-gray-200 px-2 py-1 rounded flex items-center gap-1">
-                {a.name} +{a.price} บาท
-                <button
-                  type="button"
-                  onClick={() => handleRemoveAddOn(a.id)}
-                  className="text-red-500 font-bold"
-                  disabled={storeSuspended}
-                >
-                  ×
-                </button>
-              </span>
+              <div
+                key={a.id}
+                className="flex justify-between items-center border border-gray-300 bg-white rounded-lg px-3 py-2 shadow-sm"
+              >
+                <span className="text-sm text-gray-800">
+                  {a.name} +{a.price} บาท
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleEditAddOn(a)}
+                    className="px-2 py-1 text-xs rounded bg-blue-100 text-blue-600 hover:bg-blue-200"
+                    disabled={storeSuspended}
+                  >
+                    แก้ไข
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveAddOn(a.id)}
+                    className="px-2 py-1 text-xs rounded bg-red-100 text-red-600 hover:bg-red-200"
+                    disabled={storeSuspended}
+                  >
+                    ลบ
+                  </button>
+                </div>
+              </div>
             ))}
           </div>
         </div>

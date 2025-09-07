@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import axios from 'axios';
+import toast, { Toaster } from 'react-hot-toast';
 import {
   FiCheckCircle,
   FiClock,
@@ -70,7 +71,10 @@ export default function DashboardOrdersPage() {
     try {
       const res = await axios.get('/api/auth/me', { withCredentials: true });
       setIsSuspended(res.data?.user?.isSuspended || false);
-    } catch (err) { console.error('โหลดข้อมูลร้านไม่สำเร็จ', err); }
+    } catch (err) {
+      console.error('โหลดข้อมูลร้านไม่สำเร็จ', err);
+      toast.error('โหลดข้อมูลร้านไม่สำเร็จ');
+    }
   };
 
   const fetchOrders = async () => {
@@ -80,7 +84,7 @@ export default function DashboardOrdersPage() {
       setOrders(res.data.orders || []);
     } catch (err: any) {
       if (err.response?.status === 401) window.location.href = '/login';
-      else alert('เกิดข้อผิดพลาดในการโหลดออเดอร์');
+      else toast.error('เกิดข้อผิดพลาดในการโหลดออเดอร์');
       console.error(err);
     }
     setLoading(false);
@@ -91,24 +95,60 @@ export default function DashboardOrdersPage() {
     setUpdatingOrderId(orderId);
     try {
       const res = await axios.put('/api/order/updateStatus', { orderId, status: newStatus });
-      if (res.data.success) fetchOrders();
-      else alert(res.data.message || 'อัปเดตสถานะล้มเหลว');
+      if (res.data.success) {
+        fetchOrders();
+        toast.success(`อัปเดตสถานะเป็น "${STATUS_LIST.find(s => s.key === newStatus)?.label}" เรียบร้อย`);
+      } else {
+        toast.error(res.data.message || 'อัปเดตสถานะล้มเหลว');
+      }
     } catch (error: any) {
-      if (error.response?.status === 403) { alert('ร้านถูกระงับ'); setIsSuspended(true); }
-      else { alert('เกิดข้อผิดพลาดในการอัปเดตสถานะ'); console.error(error); }
+      if (error.response?.status === 403) {
+        toast.error('ร้านถูกระงับ');
+        setIsSuspended(true);
+      } else {
+        toast.error('เกิดข้อผิดพลาดในการอัปเดตสถานะ');
+        console.error(error);
+      }
     }
     setUpdatingOrderId(null);
   };
 
-  const deleteOrder = async (orderId: string) => {
-    if (isSuspended) return alert('ร้านถูกระงับ ไม่สามารถลบออเดอร์ได้');
-    if (!confirm('คุณแน่ใจว่าจะลบออเดอร์นี้หรือไม่?')) return;
-    try {
-      const res = await fetch(`/api/order/delete?orderId=${orderId}`, { method: 'DELETE' });
-      const data = await res.json();
-      if (data.success) { alert('ลบออเดอร์สำเร็จ'); fetchOrders(); }
-      else alert(`ลบออเดอร์ไม่สำเร็จ: ${data.message}`);
-    } catch (error) { alert('เกิดข้อผิดพลาดในการลบออเดอร์'); console.error(error); }
+  const deleteOrder = (orderId: string) => {
+    if (isSuspended) return toast.error('ร้านถูกระงับ ไม่สามารถลบออเดอร์ได้');
+
+    toast(
+      (t) => (
+        <div className="flex flex-col gap-2">
+          <span>คุณแน่ใจว่าจะลบออเดอร์นี้หรือไม่?</span>
+          <div className="flex gap-2 justify-end">
+            <button className="px-3 py-1 bg-gray-400 rounded hover:bg-gray-700 " onClick={() => toast.dismiss(t.id)}>ยกเลิก</button>
+            <button
+              className="px-3 py-1 bg-red-500 rounded hover:bg-red-600 text-white"
+              onClick={async () => {
+                try {
+                  const res = await fetch(`/api/order/delete?orderId=${orderId}`, { method: 'DELETE' });
+                  const data = await res.json();
+                  if (data.success) {
+                    toast.success('ลบออเดอร์สำเร็จ');
+                    fetchOrders();
+                  } else {
+                    toast.error(`ลบออเดอร์ไม่สำเร็จ: ${data.message}`);
+                  }
+                } catch (err) {
+                  toast.error('เกิดข้อผิดพลาดในการลบออเดอร์');
+                  console.error(err);
+                } finally {
+                  toast.dismiss(t.id);
+                }
+              }}
+            >
+              ยืนยัน
+            </button>
+          </div>
+        </div>
+      ),
+      { duration: Infinity, position: 'top-center' }
+    );
   };
 
   const filterPaidOrdersByTime = (orders: Order[], filter: PaidTimeFilter) => {
@@ -116,8 +156,14 @@ export default function DashboardOrdersPage() {
     return orders.filter((o) => {
       const orderDate = new Date(o.createdAt);
       if (filter === 'today') return orderDate.toDateString() === now.toDateString();
-      if (filter === 'yesterday') { const yesterday = new Date(); yesterday.setDate(now.getDate() - 1); return orderDate.toDateString() === yesterday.toDateString(); }
-      if (filter === 'week') { const weekStart = new Date(); weekStart.setDate(now.getDate() - now.getDay()); return orderDate >= weekStart && orderDate <= now; }
+      if (filter === 'yesterday') {
+        const yesterday = new Date(); yesterday.setDate(now.getDate() - 1);
+        return orderDate.toDateString() === yesterday.toDateString();
+      }
+      if (filter === 'week') {
+        const weekStart = new Date(); weekStart.setDate(now.getDate() - now.getDay());
+        return orderDate >= weekStart && orderDate <= now;
+      }
       if (filter === 'month') return orderDate.getMonth() === now.getMonth() && orderDate.getFullYear() === now.getFullYear();
       return false;
     });
@@ -150,7 +196,10 @@ export default function DashboardOrdersPage() {
     if (!orders.length) return [];
     let start = new Date(orders[0].createdAt);
     let end = new Date(orders[orders.length - 1].createdAt);
-    if (timeRange === 'month') { start = new Date(new Date().getFullYear(), new Date().getMonth(), 1); end = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0); }
+    if (timeRange === 'month') {
+      start = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+      end = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0);
+    }
     const dateMap: Record<string, { revenue: number; itemsSold: number }> = {};
     orders.forEach((order) => {
       const dateStr = new Date(order.createdAt).toLocaleDateString();
@@ -172,11 +221,20 @@ export default function DashboardOrdersPage() {
 
   return (
     <div className="max-w-7xl mx-auto p-6 bg-white min-h-screen rounded-md shadow-md">
+      <Toaster
+        position="top-center"
+        toastOptions={{
+          duration: 3000,
+          style: { background: '#333', color: '#fff', fontSize: '16px', padding: '12px 24px', borderRadius: '12px', textAlign: 'center' },
+          success: { style: { background: '#16a34a' } },
+          error: { style: { background: '#dc2626' } },
+        }}
+      />
       <h1 className="text-4xl font-extrabold mb-8 text-gray-900 border-b border-gray-300 pb-4">
         {showPaidOrders ? 'จัดการออเดอร์ร้านอาหารที่เสร็จสิ้นแล้ว' : 'จัดการออเดอร์ร้านอาหารที่ยังไม่เสร็จ'}
       </h1>
 
-      {isSuspended && <div className="mb-6 p-4 bg-red-100 text-red-700 font-semibold rounded-lg shadow">ร้านนี้ถูกระงับ ดูข้อมูลได้เท่านั้น</div>}
+      {isSuspended && <div className="mb-6 p-4 bg-red-100 text-red-700 font-semibold rounded-lg shadow">ร้านนี้ถูกระงับ ดูข้อมูลสมารถได้เท่านั้นกรุณาติดต่อผู้ดูแลระบบ</div>}
 
       {!showPaidOrders && (
         <div className="flex justify-end mb-4">

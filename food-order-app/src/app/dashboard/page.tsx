@@ -6,8 +6,7 @@ import { FaUserCircle, FaDownload } from 'react-icons/fa';
 import QRCode from 'react-qr-code';
 import useSWR from 'swr';
 import toast, { Toaster } from 'react-hot-toast';
-import axios from 'axios';   // 👈 ต้องมี
-
+import axios from 'axios';  
 
 interface AddOn { id: string; name: string; price: number; }
 interface Menu { 
@@ -27,7 +26,6 @@ interface Store {
 }
 
 const fetcher = (url: string) => fetch(url).then(res => res.json());
-
 
 export default function DashboardPage() {
   const { data: menuData, isLoading: menuLoading, mutate: mutateMenu } = useSWR('/api/store/menu/list', fetcher);
@@ -52,10 +50,10 @@ export default function DashboardPage() {
 
   const [storeStatusToggle, setStoreStatusToggle] = useState<'active' | 'suspended'>('active');
   useEffect(() => {
-  if (storeData?.store?.status) {
-    setStoreStatus(storeData.store.status);
-  }
-}, [storeData]);
+    if (storeData?.store?.status) {
+      setStoreStatus(storeData.store.status);
+    }
+  }, [storeData]);
 
   useEffect(() => {
     if (store?.tableInfo) {
@@ -97,30 +95,28 @@ export default function DashboardPage() {
   };
 
   const [storeStatus, setStoreStatus] = useState<'active' | 'temporaryClosed' | 'suspended'>('active');
-const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-const toggleStoreStatus = async () => {
-  const newStatus = storeStatus === 'active' ? 'temporaryClosed' : 'active';
-  setLoading(true);
+  const toggleStoreStatus = async () => {
+    const newStatus = storeStatus === 'active' ? 'temporaryClosed' : 'active';
+    setLoading(true);
 
-  try {
-    const res = await axios.patch(`/api/store/toggleStatus`, { status: newStatus });
-    if (res.data.success) {
-      setStoreStatus(newStatus); // อัปเดต state ทันที
-      alert(`ร้านเปลี่ยนสถานะเป็น ${newStatus === 'active' ? 'เปิด' : 'ปิดชั่วคราว'} แล้ว`);
-      mutateStore(); // รีเฟรชข้อมูลร้าน
-    } else {
-      alert(res.data.message || 'เกิดข้อผิดพลาด');
+    try {
+      const res = await axios.patch(`/api/store/toggleStatus`, { status: newStatus });
+      if (res.data.success) {
+        setStoreStatus(newStatus);
+        toast.success(`ร้านเปลี่ยนสถานะเป็น ${newStatus === 'active' ? 'เปิด' : 'ปิดชั่วคราว'} แล้ว`);
+        mutateStore();
+      } else {
+        toast.error(res.data.message || 'เกิดข้อผิดพลาด');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('เกิดข้อผิดพลาด');
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    console.error(err);
-    alert('เกิดข้อผิดพลาด');
-  } finally {
-    setLoading(false);
-  }
-};
-
-
+  };
 
   const cancelTableEdit = () => {
     setHasTables(originalHasTables);
@@ -252,10 +248,7 @@ const downloadAllTableQRCodes = () => {
   })();
 };
 
-
-
-
-  const disableTableSettings = storeLoading || !store?._id;
+ const disableTableSettings = storeLoading || !store?._id;
 
   const toggleMenuAvailability = async (menu: Menu) => {
     try {
@@ -277,13 +270,30 @@ const downloadAllTableQRCodes = () => {
     }
   };
 
-  
-
-  
-
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
-      <Toaster position="top-right" />
+      <Toaster
+        position="top-center"
+        toastOptions={{
+          duration: 3000,
+          style: {
+            background: '#333',
+            color: '#fff',
+            fontSize: '16px',
+            padding: '12px 24px',
+            borderRadius: '12px',
+            textAlign: 'center',
+            minWidth: '250px',
+          },
+          success: {
+            style: { background: '#16a34a' },
+          },
+          error: {
+            style: { background: '#dc2626' }, 
+          },
+        }}
+      />
+
 
       {/* Navbar */}
       <div className="flex justify-between items-center bg-green-400 px-2 py-4 shadow-md relative">
@@ -346,7 +356,7 @@ const downloadAllTableQRCodes = () => {
                 tableSaved ? (
                   <div className="flex justify-between items-center text-sm md:text-base gap-2">
                     <p>สถานะโต๊ะ: {hasTables ? `${tableCount} โต๊ะ` : 'ไม่มีโต๊ะ'}</p>
-                    <button onClick={()=>setTableSaved(false)} className="px-3 py-1 bg-yellow-500 text-white rounded text-xs md:text-sm">แก้ไข</button>
+                    <button onClick={()=>setTableSaved(false)} className="px-3 py-1 bg-yellow-500 text-white rounded text-sm md:text-base ">แก้ไข</button>
                   </div>
                 ) : (
                   <div className="flex flex-col gap-2 md:gap-3 text-sm md:text-base">
@@ -379,7 +389,6 @@ const downloadAllTableQRCodes = () => {
             </div>
           )}
 
-          
           {/* QR */}
           {activeTab==='qr' && store?._id && (
             <div className="bg-white rounded-xl shadow-md p-4 md:p-6 animate-slide-in">
@@ -397,7 +406,7 @@ const downloadAllTableQRCodes = () => {
                 <div className="flex flex-col gap-6">
                   {/* QR ร้าน */}
                   <div className="flex flex-col items-center gap-2">
-                    <p className="font-medium">QR สั่งอาหาร (รวมร้าน)</p>
+                    <p className="font-medium">QR สั่งอาหาร (ของร้าน)</p>
                     <div id="qr-store" ref={qrRef}>
                       <QRCode value={`${window.location.origin}/order/${store._id}`} size={150} />
                     </div>
@@ -447,9 +456,6 @@ const downloadAllTableQRCodes = () => {
             </div>
           )}
 
-
-
-
           {/* เมนู */}
           {activeTab==='menu' && (
             <div className="bg-white rounded-xl shadow-md p-4 md:p-6 animate-slide-in">
@@ -466,8 +472,6 @@ const downloadAllTableQRCodes = () => {
                 >
                   {storeStatus === 'active' ? 'กดเพื่อปิดร้านชั่วคราว' : 'กดเพื่อเปิดร้าน'}
                 </button>
-
-
               </div>
 
               {menuLoading ? (
@@ -497,7 +501,7 @@ const downloadAllTableQRCodes = () => {
                           menu.isAvailable ? 'bg-green-600 hover:bg-green-700' : 'bg-red-500 hover:bg-red-600'
                         }`}
                       >
-                        {menu.isAvailable ? 'เปลี่ยนเป็นไม่พร้อมขาย' : 'เปลี่ยนเป็นพร้อม'}
+                        {menu.isAvailable ? 'เปลี่ยนเป็นไม่พร้อมขาย' : 'เปลี่ยนเป็นพร้อมขาย'}
                       </button>
                     </li>
                   ))}
@@ -505,11 +509,8 @@ const downloadAllTableQRCodes = () => {
               )}
             </div>
           )}
-
-
         </div>
       </div>
-
       <style jsx>{`
         .animate-slide-in { animation: slideIn 0.3s ease-out; }
         @keyframes slideIn { from { transform: translateX(50px); opacity:0; } to { transform: translateX(0); opacity:1; } }
