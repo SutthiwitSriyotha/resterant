@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 import toast, { Toaster } from 'react-hot-toast';
+import * as XLSX from 'xlsx';
 import {
   FiCheckCircle,
   FiClock,
@@ -170,17 +171,41 @@ export default function DashboardOrdersPage() {
   };
 
   const filterByTimeRange = (orders: Order[]) => {
-    const now = new Date();
-    return orders.filter((o) => {
-      const orderDate = new Date(o.createdAt);
-      if (selectedDate) return orderDate.toDateString() === new Date(selectedDate).toDateString();
-      if (startDate && endDate) return orderDate >= new Date(startDate) && orderDate <= new Date(endDate);
-      if (timeRange === 'day') return orderDate.toDateString() === now.toDateString();
-      if (timeRange === 'week') return (now.getTime() - orderDate.getTime()) / (1000 * 60 * 60 * 24) <= 7;
-      if (timeRange === 'month') return orderDate.getMonth() === now.getMonth() && orderDate.getFullYear() === now.getFullYear();
-      return true;
-    });
-  };
+  if (!orders.length) return [];
+  const now = new Date();
+
+  return orders.filter(o => {
+    const orderDate = new Date(o.createdAt);
+
+    if (timeRange === 'day' && selectedDate) {
+      const selected = new Date(selectedDate);
+      return orderDate.toDateString() === selected.toDateString();
+    }
+
+    if (timeRange === 'week' && startDate) {
+      const [yearStr, weekStr] = startDate.split('-W');
+      const year = parseInt(yearStr);
+      const week = parseInt(weekStr);
+      const firstDayOfWeek = new Date(year, 0, 1 + (week - 1) * 7);
+      const lastDayOfWeek = new Date(firstDayOfWeek);
+      lastDayOfWeek.setDate(firstDayOfWeek.getDate() + 6);
+      return orderDate >= firstDayOfWeek && orderDate <= lastDayOfWeek;
+    }
+
+    if (timeRange === 'month' && selectedDate) {
+      const [year, month] = selectedDate.split('-').map(Number);
+      return orderDate.getFullYear() === year && orderDate.getMonth() === month - 1;
+    }
+
+    // fallback เดิม
+    if (timeRange === 'day') return orderDate.toDateString() === now.toDateString();
+    if (timeRange === 'week') return (now.getTime() - orderDate.getTime()) / (1000 * 60 * 60 * 24) <= 7;
+    if (timeRange === 'month') return orderDate.getMonth() === now.getMonth() && orderDate.getFullYear() === now.getFullYear();
+
+    return true;
+  });
+};
+
 
   const filteredOrders = showPaidOrders
     ? paidTimeFilter && !showSummary
@@ -218,6 +243,47 @@ export default function DashboardOrdersPage() {
   };
 
   const graphData = generateGraphData(sortedOrders);
+
+  // ฟังก์ชันสร้าง Excel และดาวน์โหลด
+const downloadExcel = (orders: Order[], fileName: string) => {
+  if (!orders.length) return toast.error('ไม่มีข้อมูลสำหรับดาวน์โหลด');
+
+  // 1. รายละเอียดออเดอร์
+  const orderSheetData = orders.map(o => ({
+    'วันที่': new Date(o.createdAt).toLocaleString(),
+    'ชื่อลูกค้า/โต๊ะ': o.customerName || o.tableNumber || '-',
+    'รายการอาหาร': o.items.map(i => `${i.name} ×${i.quantity} ${i.comment ? `(${i.comment})` : ''} ${(i.addOns || []).map(a => `${a.name}(+${a.price})`).join(', ')}`).join('; '),
+    'รวมราคา': o.totalPrice,
+    'สถานะ': o.status,
+  }));
+
+  const wsOrders = XLSX.utils.json_to_sheet(orderSheetData);
+
+  // 2. สรุปเมนูขายดีที่สุด
+  const menuCount: Record<string, number> = {};
+  orders.forEach(order => {
+    order.items.forEach(item => {
+      menuCount[item.name] = (menuCount[item.name] || 0) + item.quantity;
+    });
+  });
+
+  // แปลงเป็น array และ sort
+  const sortedMenus = Object.entries(menuCount)
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, qty]) => ({ 'เมนู': name, 'จำนวนขาย': qty }));
+
+  const wsSummary = XLSX.utils.json_to_sheet(sortedMenus);
+
+  // 3. สร้าง workbook และ append sheet
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, wsOrders, 'Orders');
+  XLSX.utils.book_append_sheet(wb, wsSummary, 'ยอดขายเมนู');
+
+  // 4. ดาวน์โหลด
+  XLSX.writeFile(wb, fileName);
+};
+
+
 
   return (
     <div className="max-w-7xl mx-auto p-6 bg-white min-h-screen rounded-md shadow-md">
@@ -258,7 +324,7 @@ export default function DashboardOrdersPage() {
             <select
               value={paidTimeFilter}
               onChange={(e) => setPaidTimeFilter(e.target.value as PaidTimeFilter)}
-              className="border px-3 py-2 rounded-md"
+              className="border px-3 py-1 rounded-md"
             >
               <option value="today">วันนี้</option>
               <option value="yesterday">เมื่อวาน</option>
@@ -267,42 +333,82 @@ export default function DashboardOrdersPage() {
             </select>
             <button
               onClick={() => setShowSummary(true)}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+              className="px-2 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
             >
               ดูสรุปทั้งหมด / กราฟ
             </button>
+
+            {/* ปุ่มดาวน์โหลด Excel */}
+            <div className="px-3 py-1 rounded-md">
+              <button
+                onClick={() => downloadExcel(filteredOrders, `Order_Summary_${paidTimeFilter}.xlsx`)}
+                className="px-2 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+              >
+                ดาวน์โหลด Excel
+              </button>
+            </div>
           </div>
         )}
 
         {showPaidOrders && showSummary && (
           <div className="bg-gray-50 p-4 rounded-md shadow-sm mb-6 w-full text-gray-900">
             <div className="flex items-center gap-4 mb-4 flex-wrap">
-              <label>ดูกราฟ:</label>
-              <select
+            <label>ดูกราฟ:</label>
+            <select
+              className="border px-3 py-2 rounded-md text-gray-900"
+              onChange={(e) => {
+                const value = e.target.value as 'day' | 'week' | 'month';
+                setTimeRange(value);
+                setSelectedDate('');
+                setStartDate('');
+                setEndDate('');
+              }}
+              value={timeRange}
+            >
+              <option value="day">รายวัน</option>
+              <option value="week">รายสัปดาห์</option>
+              <option value="month">รายเดือน</option>
+            </select>
+
+            <label>ชนิดกราฟ:</label>
+            <select
+              className="border px-3 py-2 rounded-md text-gray-900"
+              value={graphType}
+              onChange={(e) => setGraphType(e.target.value as 'line' | 'bar')}
+            >
+              <option value="line">กราฟเส้น</option>
+              <option value="bar">กราฟแท่ง</option>
+            </select>
+
+            {timeRange === 'day' && (
+              <input
+                type="date"
                 className="border px-3 py-2 rounded-md text-gray-900"
-                onChange={(e) => setTimeRange(e.target.value as 'day' | 'week' | 'month')}
-                value={timeRange}
-              >
-                <option value="day">รายวัน</option>
-                <option value="week">รายสัปดาห์</option>
-                <option value="month">รายเดือน</option>
-              </select>
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+              />
+            )}
 
-              <button
-                onClick={() => setGraphType('line')}
-                className={`px-3 py-2 rounded-md ${graphType === 'line' ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700'}`}
-              >
-                กราฟเส้น
-              </button>
-              <button
-                onClick={() => setGraphType('bar')}
-                className={`px-3 py-2 rounded-md ${graphType === 'bar' ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700'}`}
-              >
-                กราฟแท่ง
-              </button>
+            {timeRange === 'week' && (
+              <input
+                type="week"
+                className="border px-3 py-2 rounded-md text-gray-900"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
+            )}
 
-              <button onClick={() => setShowSummary(false)} className="px-3 py-2 bg-gray-300 rounded-md hover:bg-gray-400 text-gray-900">ย้อนกลับ</button>
-            </div>
+            {timeRange === 'month' && (
+              <input
+                type="month"
+                className="border px-3 py-2 rounded-md text-gray-900"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+              />
+            )}
+
+            <button onClick={() => setShowSummary(false)} className="px-3 py-2 bg-gray-300 rounded-md hover:bg-gray-400 text-gray-900">ย้อนกลับ</button>
+          </div>
 
             <div style={{ width: '100%', height: 300 }}>
               <ResponsiveContainer>

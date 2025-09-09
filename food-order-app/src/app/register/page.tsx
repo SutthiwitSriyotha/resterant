@@ -27,7 +27,7 @@ export default function RegisterPage() {
   const validatePhone = (phone: string) => {
     const phonePattern = /^(09|08|06)\d{8}$/
     if (!phonePattern.test(phone)) {
-      return 'เบอร์โทรไม่ถูกต้อง ต้องมี 10 หลักและขึ้นต้นด้วย 09, 08 หรือ 06'
+      return 'เบอร์โทรไม่ถูกต้อง ต้องมี 10 หลักและขึ้นต้นด้วย 09 08 หรือ 06'
     }
     return ''
   }
@@ -35,7 +35,7 @@ export default function RegisterPage() {
   const validatePassword = (password: string) => {
     const passwordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/
     if (!passwordPattern.test(password)) {
-      return 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร, มีตัวพิมพ์ใหญ่, ตัวพิมพ์เล็ก และตัวเลข'
+      return 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร มีตัวพิมพ์ใหญ่ ตัวพิมพ์เล็ก และตัวเลข'
     }
     return ''
   }
@@ -102,7 +102,7 @@ export default function RegisterPage() {
 
         <p className="text-sm text-gray-600 text-center">
           ลงทะเบียนเพื่อเปิดร้านอาหารของคุณบนระบบ ลูกค้าสามารถสแกน QR Code เพื่อสั่งอาหาร
-          และคุณสามารถจัดการเมนู ตรวจสอบออเดอร์ และยืนยันการชำระเงินได้สะดวก
+          และคุณสามารถจัดการเมนู จัดการออเดอร์ และยืนยันการชำระเงินได้สะดวก
         </p>
 
         {submitError && <p className="text-red-600">{submitError}</p>}
@@ -125,7 +125,7 @@ export default function RegisterPage() {
           <input
             type="text"
             name="ownerName"
-            placeholder="ชื่อ-นามสกุล/ชื่อเล่น"
+            placeholder="ชื่อ-นามสกุลหรือชื่อเล่นของคุณ"
             value={form.ownerName}
             onChange={handleChange}
             required
@@ -193,7 +193,7 @@ export default function RegisterPage() {
           <input
             type="password"
             name="password"
-            placeholder="อย่างน้อย 8 ตัวอักษร มีตัวพิมพ์ใหญ่, เล็ก และตัวเลข"
+            placeholder="อย่างน้อย 8 ตัวอักษร มีตัวพิมพ์ใหญ่ เล็ก และตัวเลข"
             value={form.password}
             onChange={handleChange}
             required

@@ -355,7 +355,7 @@ const downloadAllTableQRCodes = () => {
               {disableTableSettings ? <p>กำลังโหลด...</p> :
                 tableSaved ? (
                   <div className="flex justify-between items-center text-sm md:text-base gap-2">
-                    <p>สถานะโต๊ะ: {hasTables ? `${tableCount} โต๊ะ` : 'ไม่มีโต๊ะ'}</p>
+                    <p>สถานะโต๊ะปัจจุบัน: {hasTables ? `มี ${tableCount} โต๊ะ` : 'ไม่มีโต๊ะ'}</p>
                     <button onClick={()=>setTableSaved(false)} className="px-3 py-1 bg-yellow-500 text-white rounded text-sm md:text-base ">แก้ไข</button>
                   </div>
                 ) : (

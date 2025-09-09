@@ -268,227 +268,242 @@ export default function MenuPage() {
   };
 
   return (
-    <div className="bg-white min-h-screen p-5 md:p-8 max-w-4xl mx-auto text-gray-900">
-      {/* Toaster */}
-      <Toaster
-        position="top-center"
-        toastOptions={{
-          duration: 3000,
-          style: {
-            background: '#333',
-            color: '#fff',
-            fontSize: '16px',
-            padding: '12px 24px',
-            borderRadius: '12px',
-            textAlign: 'center',
-            minWidth: '250px',
-          },
-          success: { style: { background: '#16a34a' } },
-          error: { style: { background: '#dc2626' } },
-        }}
-      />
+  <div className="bg-gray-100 min-h-screen text-gray-900">
+    {/* Toaster */}
+    <Toaster
+      position="top-center"
+      toastOptions={{
+        duration: 3000,
+        style: {
+          background: '#333',
+          color: '#fff',
+          fontSize: '16px',
+          padding: '12px 24px',
+          borderRadius: '12px',
+          textAlign: 'center',
+          minWidth: '250px',
+        },
+        success: { style: { background: '#16a34a' } },
+        error: { style: { background: '#dc2626' } },
+      }}
+    />
 
-      <h1 className="text-3xl font-bold mb-6 text-[#00b14f]">จัดการเมนูอาหาร</h1>
+    {/* Navbar กว้างเต็มจอ */}
+    <nav className="w-full bg-green-400 text-black p-5 shadow-md flex items-center justify-between">
+      <h1 className="text-xl font-bold select-none">จัดการเมนูอาหาร</h1>
+    </nav>
 
-      {storeSuspended && (
-        <p className="text-red-600 font-semibold mb-4">
-          ร้านถูกระงับ คุณไม่สามารถแก้ไขหรือเพิ่มเมนูได้กรุณาติดต่อผู้ดูแลระบบ
-        </p>
-      )}
+    {/* การ์ดใหญ่รวมทุกอย่าง */}
+    <div className="max-w-4xl mx-auto mt-4 bg-white rounded-2xl shadow-lg p-2 md:p-2 space-y-4">
+      
+      {/* การ์ดย่อย 1: ฟอร์มเพิ่ม/แก้ไขเมนู */}
+      <div className="bg-gray-50 rounded-xl shadow-inner p-4 md:p-6 space-y-5">
+        {storeSuspended && (
+          <p className="text-red-600 font-semibold">
+            ร้านถูกระงับ คุณไม่สามารถแก้ไขหรือเพิ่มเมนูได้กรุณาติดต่อผู้ดูแลระบบ
+          </p>
+        )}
 
-      {/* ฟอร์มจัดการเมนู */}
-      <div ref={formRef} className="bg-gray-50 border border-gray-200 rounded-2xl shadow-lg p-6 space-y-5 mb-10">
-        {/* ชื่อเมนู */}
-        <div className="space-y-1">
-          <label className="block text-sm font-medium">ชื่อเมนู</label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="เช่น ข้าวหมูแดง"
-            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#00b14f]"
-            disabled={storeSuspended}
-          />
-        </div>
-
-        {/* ราคา */}
-        <div className="space-y-1">
-          <label className="block text-sm font-medium">ราคา (บาท)</label>
-          <input
-            type="number"
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-            placeholder="เช่น 60"
-            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#00b14f]"
-            disabled={storeSuspended}
-          />
-        </div>
-
-        {/* คำอธิบาย */}
-        <div className="space-y-1">
-          <label className="block text-sm font-medium">คำอธิบาย (ถ้ามี)</label>
-          <input
-            type="text"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="อธิบายเพิ่มเติมเกี่ยวกับเมนู"
-            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#00b14f]"
-            disabled={storeSuspended}
-          />
-        </div>
-
-        {/* Upload รูป */}
-        <div className="space-y-1">
-          <label className="block text-sm font-medium">อัปโหลดรูป</label>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) => setImageFile(e.target.files?.[0] || null)}
-            className="w-full"
-            disabled={storeSuspended}
-          />
-        </div>
-
-        {/* Add-ons */}
-        <div className="space-y-2 border-t pt-4">
-          <h3 className="text-sm font-semibold text-gray-700 mb-2">Add-ons</h3>
-
-          {/* ฟอร์มเพิ่ม / อัปเดต Add-on */}
-          <div className="flex gap-2 mb-2">
+        {/* ฟอร์มจัดการเมนู */}
+        <div ref={formRef} className="space-y-5">
+          {/* ชื่อเมนู */}
+          <div className="space-y-1">
+            <label className="block text-sm font-medium">ชื่อเมนู</label>
             <input
               type="text"
-              placeholder="ชื่อ Add-on"
-              value={newAddOnName}
-              onChange={(e) => setNewAddOnName(e.target.value)}
-              className="border px-2 py-1 rounded w-32"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="เช่น ข้าวหมูแดง"
+              className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#00b14f]"
               disabled={storeSuspended}
             />
-            <input
-              type="number"
-              placeholder="ราคา"
-              value={newAddOnPrice}
-              onChange={(e) => setNewAddOnPrice(e.target.value)}
-              className="border px-2 py-1 rounded w-20"
-              disabled={storeSuspended}
-            />
-            <button
-              type="button"
-              onClick={handleAddAddOn}
-              className="bg-[#00b14f] text-white px-3 rounded"
-              disabled={storeSuspended}
-            >
-              {editAddOnId ? 'อัปเดต' : 'เพิ่ม'}
-            </button>
           </div>
 
-          {/* แสดงรายการ Add-on */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {addOnsArray.map((a) => (
-              <div
-                key={a.id}
-                className="flex justify-between items-center border border-gray-300 bg-white rounded-lg px-3 py-2 shadow-sm"
+          {/* ราคา */}
+          <div className="space-y-1">
+            <label className="block text-sm font-medium">ราคา (บาท)</label>
+            <input
+              type="number"
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              placeholder="เช่น 60"
+              className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#00b14f]"
+              disabled={storeSuspended}
+            />
+          </div>
+
+          {/* คำอธิบาย */}
+          <div className="space-y-1">
+            <label className="block text-sm font-medium">คำอธิบาย (ถ้ามี)</label>
+            <input
+              type="text"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="อธิบายเพิ่มเติมเกี่ยวกับเมนู"
+              className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#00b14f]"
+              disabled={storeSuspended}
+            />
+          </div>
+
+          {/* Upload รูป */}
+          <div className="space-y-1">
+            <label className="block text-sm font-medium">อัปโหลดรูป</label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+              className="w-full"
+              disabled={storeSuspended}
+            />
+          </div>
+
+          {/* Add-ons */}
+          <div className="space-y-2 border-t pt-4">
+            <h3 className="text-sm font-semibold text-gray-700 mb-2">Add-ons</h3>
+
+            <div className="flex gap-2 mb-2">
+              <input
+                type="text"
+                placeholder="ชื่อ Add-on"
+                value={newAddOnName}
+                onChange={(e) => setNewAddOnName(e.target.value)}
+                className="border px-2 py-1 rounded w-32"
+                disabled={storeSuspended}
+              />
+              <input
+                type="number"
+                placeholder="ราคา"
+                value={newAddOnPrice}
+                onChange={(e) => setNewAddOnPrice(e.target.value)}
+                className="border px-2 py-1 rounded w-20"
+                disabled={storeSuspended}
+              />
+              <button
+                type="button"
+                onClick={handleAddAddOn}
+                className="bg-[#00b14f] text-white px-3 rounded"
+                disabled={storeSuspended}
               >
-                <span className="text-sm text-gray-800">
-                  {a.name} +{a.price} บาท
-                </span>
-                <div className="flex gap-2">
+                {editAddOnId ? 'อัปเดต' : 'เพิ่ม'}
+              </button>
+            </div>
+
+            {/* แสดงรายการ Add-on */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {addOnsArray.map((a) => (
+                <div
+                  key={a.id}
+                  className="flex justify-between items-center border border-gray-300 bg-white rounded-lg px-3 py-2 shadow-sm"
+                >
+                  <span className="text-sm text-gray-800">
+                    {a.name} +{a.price} บาท
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleEditAddOn(a)}
+                      className="px-2 py-1 text-xs rounded bg-blue-100 text-blue-600 hover:bg-blue-200"
+                      disabled={storeSuspended}
+                    >
+                      แก้ไข
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveAddOn(a.id)}
+                      className="px-2 py-1 text-xs rounded bg-red-100 text-red-600 hover:bg-red-200"
+                      disabled={storeSuspended}
+                    >
+                      ลบ
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ปุ่ม */}
+          <div className="pt-4 flex gap-4">
+            <button
+              onClick={handleUpload}
+              disabled={isSaving || storeSuspended || (!!editId && !isDirty)}
+              className={`bg-[#00b14f] hover:bg-green-700 text-white px-6 py-2 rounded-lg font-semibold transition ${
+                isSaving || storeSuspended || (!!editId && !isDirty) ? 'opacity-60 cursor-not-allowed' : ''
+              }`}
+            >
+              {isSaving ? 'กำลังบันทึกเมนู...' : editId ? 'อัปเดตเมนู' : 'บันทึกเมนู'}
+            </button>
+
+            <button
+              onClick={resetForm}
+              className="bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-2 rounded-lg transition"
+              disabled={storeSuspended && !editId}
+            >
+              ยกเลิก
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* การ์ดย่อย 2: รายการเมนู */}
+      <div className="bg-gray-50 rounded-xl shadow-inner p-4 md:p-6 space-y-2">
+        <h2 className="text-lg font-bold text-gray-800">รายการเมนู</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {isLoading ? (
+            <p className="text-center text-gray-500 col-span-full">กำลังโหลดเมนู...</p>
+          ) : menus.length === 0 ? (
+            <p className="text-center text-gray-500 col-span-full">ตอนนี้ร้านยังไม่ได้เพิ่มเมนู</p>
+          ) : (
+            menus.map((menu) => (
+              <div
+                key={menu._id}
+                className="border border-gray-200 rounded-2xl shadow-md hover:shadow-lg transition p-2 bg-white"
+              >
+                {menu.image && (
+                  <Image
+                    src={menu.image}
+                    alt={menu.name}
+                    width={500}
+                    height={300}
+                    className="rounded-xl object-cover w-full h-48 mb-3"
+                  />
+                )}
+                <h3 className="text-lg font-bold text-gray-800">{menu.name}</h3>
+                <p className="text-[#00b14f] font-semibold">{menu.price} บาท</p>
+                {menu.description && <p className="text-sm text-gray-500 mt-1">{menu.description}</p>}
+
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {menu.addOns?.map((a) => (
+                    <span key={a.id} className="text-sm bg-gray-200 px-2 py-1 rounded">
+                      {a.name} +{a.price} บาท
+                    </span>
+                  ))}
+                </div>
+
+                <div className="mt-4 flex gap-4 text-sm font-semibold">
                   <button
-                    type="button"
-                    onClick={() => handleEditAddOn(a)}
-                    className="px-2 py-1 text-xs rounded bg-blue-100 text-blue-600 hover:bg-blue-200"
+                    onClick={() => handleEdit(menu)}
+                    className="text-[#00b14f] hover:underline"
                     disabled={storeSuspended}
                   >
                     แก้ไข
                   </button>
                   <button
-                    type="button"
-                    onClick={() => handleRemoveAddOn(a.id)}
-                    className="px-2 py-1 text-xs rounded bg-red-100 text-red-600 hover:bg-red-200"
+                    onClick={() => handleDelete(menu._id)}
+                    className="text-red-500 hover:underline"
                     disabled={storeSuspended}
                   >
                     ลบ
                   </button>
                 </div>
               </div>
-            ))}
-          </div>
+            ))
+          )}
         </div>
-
-        {/* ปุ่ม */}
-        <div className="pt-4 flex gap-4">
-          <button
-            onClick={handleUpload}
-            disabled={isSaving || storeSuspended || (!!editId && !isDirty)}
-            className={`bg-[#00b14f] hover:bg-green-700 text-white px-6 py-2 rounded-lg font-semibold transition ${
-              isSaving || storeSuspended || (!!editId && !isDirty) ? 'opacity-60 cursor-not-allowed' : ''
-            }`}
-          >
-            {isSaving ? 'กำลังบันทึกเมนู...' : editId ? 'อัปเดตเมนู' : 'บันทึกเมนู'}
-          </button>
-
-          <button
-            onClick={resetForm}
-            className="bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-2 rounded-lg transition"
-            disabled={storeSuspended && !editId}
-          >
-            ยกเลิก
-          </button>
-        </div>
-      </div>
-
-      {/* รายการเมนู */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-        {isLoading ? (
-          <p className="text-center text-gray-500 col-span-full">กำลังโหลดเมนู...</p>
-        ) : menus.length === 0 ? (
-          <p className="text-center text-gray-500 col-span-full">ตอนนี้ร้านยังไม่ได้เพิ่มเมนู</p>
-        ) : (
-          menus.map((menu) => (
-            <div
-              key={menu._id}
-              className="border border-gray-200 rounded-2xl shadow-md hover:shadow-lg transition p-4 bg-white"
-            >
-              {menu.image && (
-                <Image
-                  src={menu.image}
-                  alt={menu.name}
-                  width={500}
-                  height={300}
-                  className="rounded-xl object-cover w-full h-48 mb-3"
-                />
-              )}
-              <h2 className="text-lg font-bold text-gray-800">{menu.name}</h2>
-              <p className="text-[#00b14f] font-semibold">{menu.price} บาท</p>
-              {menu.description && <p className="text-sm text-gray-500 mt-1">{menu.description}</p>}
-
-              <div className="flex flex-wrap gap-2 mt-2">
-                {menu.addOns?.map((a) => (
-                  <span key={a.id} className="text-sm bg-gray-200 px-2 py-1 rounded">
-                    {a.name} +{a.price} บาท
-                  </span>
-                ))}
-              </div>
-
-              <div className="mt-4 flex gap-4 text-sm font-semibold">
-                <button
-                  onClick={() => handleEdit(menu)}
-                  className="text-[#00b14f] hover:underline"
-                  disabled={storeSuspended}
-                >
-                  แก้ไข
-                </button>
-                <button
-                  onClick={() => handleDelete(menu._id)}
-                  className="text-red-500 hover:underline"
-                  disabled={storeSuspended}
-                >
-                  ลบ
-                </button>
-              </div>
-            </div>
-          ))
-        )}
       </div>
     </div>
-  );
+  </div>
+);
+
+
+
 }
