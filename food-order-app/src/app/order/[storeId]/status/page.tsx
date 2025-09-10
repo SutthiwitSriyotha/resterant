@@ -1,8 +1,8 @@
-'use client'; 
+'use client';
 
 import { useState, useEffect } from 'react';
-import { FiCheckCircle, FiClock, FiBox, FiTruck, FiCheck, FiArrowLeft } from 'react-icons/fi';
-import { useParams, useRouter } from 'next/navigation';
+import { FiCheckCircle, FiClock, FiBox, FiTruck, FiCheck } from 'react-icons/fi';
+import { useParams } from 'next/navigation';
 import axios from 'axios';
 
 type AddOn = { id: string; name: string; price: number };
@@ -38,8 +38,6 @@ const getQueueTime = (queueNumber?: number) => {
 
 export default function OrderStatusPage() {
   const { storeId } = useParams();
-  const router = useRouter();
-
   const [identifier, setIdentifier] = useState('');
   const [orders, setOrders] = useState<OrderStatus[]>([]);
   const [error, setError] = useState('');
@@ -130,122 +128,137 @@ export default function OrderStatusPage() {
   };
 
   return (
-    <div className="relative max-w-xl mx-auto p-6 bg-white min-h-screen rounded-md shadow-md border border-gray-300">
-      
-      {/* ปุ่มย้อนกลับ */}
-      <button
-        onClick={() => router.push(`/order/${storeId}`)}
-        className="absolute top-7 left-1 z-50 w-7 h-7 flex items-center justify-center rounded-full bg-white bg-opacity-70 hover:bg-opacity-90 shadow-md transition md:hidden"
-      >
-        <FiArrowLeft className="text-gray-700 w-5 h-5" />
-      </button>
-
-      <h1 className="text-3xl font-bold mb-6 text-gray-900 text-center md:text-left">ตรวจสอบสถานะออเดอร์</h1>
-
-      <div className="flex gap-3 items-center mb-6">
-        {activeTables === null ? (
-          <input
-            type="text"
-            placeholder="กรอกชื่อผู้สั่ง"
-            value={identifier}
-            onChange={(e) => setIdentifier(e.target.value)}
-            className="border border-gray-300 px-4 py-2 rounded-md flex-grow text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition"
-          />
-        ) : (
-          <select
-            value={identifier}
-            onChange={(e) => setIdentifier(e.target.value)}
-            className="border border-gray-300 px-4 py-2 rounded-md flex-grow text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition"
-          >
-            <option value=""> เลือกโต๊ะของท่าน </option>
-            {activeTables.length > 0 ? (
-              activeTables.map((num) => (
-                <option key={num} value={num.toString()}>
-                  โต๊ะ {num}
-                </option>
-              ))
-            ) : (
-              <option disabled>ตอนนี้ยังไม่มีออเดอร์ให้ตรวจสอบ</option>
-            )}
-          </select>
-        )}
-
-        <button
-          onClick={fetchOrderStatus}
-          disabled={
-            (activeTables && activeTables.length === 0) ||
-            (!identifier.trim())
-          }
-          className={`bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-md shadow-md transition
-            ${
-              (activeTables && activeTables.length === 0) || !identifier.trim()
-                ? 'opacity-50 cursor-not-allowed'
-                : ''
-            }`}
-        >
-          ตรวจสอบ
-        </button>
+    <div className="min-h-screen bg-gray-50">
+      {/* Navbar */}
+      <div className="bg-green-400 text-gray-900 py-5 shadow-md sticky top-0 z-50">
+        <h1 className="text-left text-xl font-bold px-6">ตรวจสอบสถานะออเดอร์</h1>
       </div>
 
-      {error && <p className="text-red-600 font-semibold mb-4">{error}</p>}
-      {message && (
-        <p className="text-green-700 font-medium bg-green-50 border border-green-200 p-3 rounded-md text-sm mb-4">
-          {message}
-        </p>
-      )}
+      {/* Main card */}
+      <div className="max-w-4xl mx-auto p-4">
+        <div className="bg-white rounded-2xl shadow-md border border-gray-300 p-6 space-y-6 animate-slide-in">
+          {/* ช่องกรอก/เลือกโต๊ะ */}
+          <div className="flex gap-2 items-center">
+            {activeTables === null ? (
+              <input
+                type="text"
+                placeholder="กรอกชื่อผู้สั่ง"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                className="border border-gray-300 px-4 py-2 rounded-md flex-grow text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition"
+              />
+            ) : (
+              <select
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                className="border border-gray-300 px-4 py-2 rounded-md flex-grow text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition"
+              >
+                <option value=""> เลือกโต๊ะของท่าน </option>
+                {activeTables.length > 0 ? (
+                  activeTables.map((num) => (
+                    <option key={num} value={num.toString()}>
+                      โต๊ะ {num}
+                    </option>
+                  ))
+                ) : (
+                  <option disabled>ตอนนี้ยังไม่มีออเดอร์ให้ตรวจสอบ</option>
+                )}
+              </select>
+            )}
 
-      {orders.length > 0 && (
-        <div className="space-y-6">
-          {orders.map((order) => {
-            const currentStatus = STATUS_LIST.find((s) => s.key === order.status);
-            return (
-              <div key={order._id} className="p-5 rounded-lg shadow-sm border border-gray-300 flex flex-col gap-4 bg-white">
-                <h2 className="text-xl font-semibold text-gray-800">
-                  {order.customerName
-                    ? `ชื่อลูกค้า: ${order.customerName}`
-                    : order.tableNumber
-                    ? `โต๊ะ: ${order.tableNumber}`
-                    : 'ไม่ระบุโต๊ะ/ลูกค้า'}
-                </h2>
+            <button
+              onClick={fetchOrderStatus}
+              disabled={
+                (activeTables && activeTables.length === 0) ||
+                (!identifier.trim())
+              }
+              className={`bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-md shadow-md transition
+                ${
+                  (activeTables && activeTables.length === 0) || !identifier.trim()
+                    ? 'opacity-50 cursor-not-allowed'
+                    : ''
+                }`}
+            >
+              ตรวจสอบ
+            </button>
+          </div>
 
-                <p className={`inline-flex items-center gap-2 font-semibold rounded px-3 py-1 w-fit ${currentStatus?.colorClass || 'bg-gray-200 text-gray-700'}`}>
-                  {currentStatus?.icon} {currentStatus?.label || order.status}
-                </p>
+          {/* ข้อความแจ้งเตือน */}
+          {error && <p className="text-red-600 font-semibold">{error}</p>}
+          {message && (
+            <p className="text-green-700 font-medium bg-green-50 border border-green-200 p-3 rounded-md text-sm">
+              {message}
+            </p>
+          )}
 
-                <p className="mt-1 text-gray-700 font-medium">{getQueueTime(order.queueNumber)}</p>
+          {/* รายการออเดอร์ */}
+          {orders.length > 0 && <h2 className="text-lg font-bold text-gray-800">รายการสั่งอาหาร</h2>}
 
-                <ul className="list-disc pl-6 text-gray-900 mt-0">
-                  {order.items.map((item, idx) => (
-                    <li key={idx} className="mb-1">
-                      <span className="font-medium">{item.name}</span> × {item.quantity}
-                      {item.comment && <span className="italic text-green-800 ml-2">({item.comment})</span>}
-                      {item.addOns && item.addOns.length > 0 && (
-                        <span className="ml-2 text-blue-400 italic">
-                          [Addเพิ่มเติม: {item.addOns.map(a => `${a.name}(+${a.price})`).join(', ')}]
-                        </span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
+          {orders.length > 0 && (
+            <div className="space-y-4">
+              {orders.map((order) => {
+                const currentStatus = STATUS_LIST.find((s) => s.key === order.status);
+                return (
+                  <div key={order._id} className="p-4 rounded-xl border border-gray-200 flex flex-col gap-3 bg-gray-50 shadow-sm">
+                    <h3 className="text-md font-semibold text-gray-800">
+                      {order.customerName
+                        ? `ชื่อลูกค้า: ${order.customerName}`
+                        : order.tableNumber
+                        ? `โต๊ะ: ${order.tableNumber}`
+                        : 'ไม่ระบุโต๊ะ/ลูกค้า'}
+                    </h3>
 
-                <p className="font-semibold text-gray-900 mt-0 text-lg">
-                  รวมราคา: {order.totalPrice?.toLocaleString() ?? '0'} บาท
-                </p>
+                    <p className={`inline-flex items-center gap-2 font-semibold rounded px-3 py-1 w-fit ${currentStatus?.colorClass || 'bg-gray-200 text-gray-700'}`}>
+                      {currentStatus?.icon} {currentStatus?.label || order.status}
+                    </p>
 
-                <div className="flex justify-end mt-0">
-                  <button
-                    onClick={() => callForBill(order._id)}
-                    disabled={!!order.isCallBill}
-                    className={`px-4 py-2 rounded-md text-white font-semibold transition ${order.isCallBill ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
-                  >
-                    {order.isCallBill ? 'เรียกเช็คบิลแล้ว' : 'เรียกเช็คบิล'}
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+                    <p className="mt-1 text-gray-700 font-medium">{getQueueTime(order.queueNumber)}</p>
+
+                    <ul className="list-disc pl-6 text-gray-900 mt-0">
+                      {order.items.map((item, idx) => (
+                        <li key={idx} className="mb-1">
+                          <span className="font-medium">{item.name}</span> × {item.quantity}
+                          {item.comment && <span className="italic text-green-800 ml-2">({item.comment})</span>}
+                          {item.addOns && item.addOns.length > 0 && (
+                            <span className="ml-2 text-blue-400 italic">
+                              [Add: {item.addOns.map(a => `${a.name}(+${a.price})`).join(', ')}]
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+
+                    <p className="font-semibold text-gray-900 mt-0 text-lg">
+                      รวมราคา: {order.totalPrice?.toLocaleString() ?? '0'} บาท
+                    </p>
+
+                    <div className="flex justify-end mt-0">
+                      <button
+                        onClick={() => callForBill(order._id)}
+                        disabled={!!order.isCallBill}
+                        className={`px-4 py-2 rounded-md text-white font-semibold transition ${order.isCallBill ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
+                      >
+                        {order.isCallBill ? 'เรียกเช็คบิลแล้ว' : 'เรียกเช็คบิล'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
-      )}
+      </div>
+
+      {/* Animation */}
+      <style jsx>{`
+        .animate-slide-in {
+          animation: slideIn 0.4s ease-out;
+        }
+        @keyframes slideIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
     </div>
   );
 }

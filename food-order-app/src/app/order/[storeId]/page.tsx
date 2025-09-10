@@ -483,7 +483,7 @@ export default function OrderPage() {
                             className="flex flex-col bg-white rounded-2xl border border-gray-200 shadow-md hover:shadow-lg transition cursor-pointer overflow-hidden"
                           >
                             {menu.image && (
-                              <div className="w-full aspect-[3/2] p-1 sm:p-2">
+                              <div className="w-full h-28 sm:h-36 md:h-44 p-1 sm:p-2 overflow-hidden">
                                 <img
                                   src={menu.image}
                                   alt={menu.name}
@@ -491,14 +491,15 @@ export default function OrderPage() {
                                 />
                               </div>
                             )}
-                            <div className="flex-1 flex flex-col justify-between p-2 sm:p-3">
+                            <div className="flex-1 flex flex-col justify-between p-3 sm:p-3">
                               <div>
                                 <h2 className="text-sm sm:text-base font-bold mb-0.5 truncate">
                                   {menu.name}
                                 </h2>
-                                <p className="text-xs sm:text-sm mb-1">
+                                <p className="text-green-900 text-xs sm:text-sm mb-1">
                                   {menu.price.toLocaleString()} บาท
                                 </p>
+
                                 {menu.description && (
                                   <p className="text-gray-700 text-xs sm:text-sm line-clamp-2">
                                     {menu.description}

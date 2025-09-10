@@ -48,7 +48,6 @@ export default function DashboardPage() {
   const [originalHasTables, setOriginalHasTables] = useState(true);
   const [originalTableCount, setOriginalTableCount] = useState(1);
 
-  const [storeStatusToggle, setStoreStatusToggle] = useState<'active' | 'suspended'>('active');
   useEffect(() => {
     if (storeData?.store?.status) {
       setStoreStatus(storeData.store.status);
@@ -349,45 +348,101 @@ const downloadAllTableQRCodes = () => {
         <div className="flex-1 p-4 md:p-6 overflow-auto relative">
 
           {/* ตั้งค่าโต๊ะร้าน */}
-          {activeTab==='table' && (
+          {activeTab === 'table' && (
             <div className="bg-white rounded-xl shadow-md p-4 md:p-6 animate-slide-in">
               <h2 className="text-base md:text-lg font-semibold mb-3 md:mb-4">ตั้งค่าโต๊ะร้าน</h2>
-              {disableTableSettings ? <p>กำลังโหลด...</p> :
-                tableSaved ? (
-                  <div className="flex justify-between items-center text-sm md:text-base gap-2">
-                    <p>สถานะโต๊ะปัจจุบัน: {hasTables ? `มี ${tableCount} โต๊ะ` : 'ไม่มีโต๊ะ'}</p>
-                    <button onClick={()=>setTableSaved(false)} className="px-3 py-1 bg-yellow-500 text-white rounded text-sm md:text-base ">แก้ไข</button>
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-2 md:gap-3 text-sm md:text-base">
-                    <label className="flex items-center gap-2">
-                      <input type="radio" checked={hasTables} onChange={()=>setHasTables(true)}/> ร้านมีโต๊ะ
-                    </label>
-                    {hasTables && (
-                      <input type="number" value={tableCount} onChange={(e)=>setTableCount(parseInt(e.target.value)||1)}
-                             className="border px-2 py-1 rounded w-20 md:w-24 text-sm md:text-base"/>
-                    )}
-                    <label className="flex items-center gap-2">
-                      <input type="radio" checked={!hasTables} onChange={()=>{
-                        setHasTables(false); 
+
+              {disableTableSettings ? (
+                <p>กำลังโหลด...</p>
+              ) : tableSaved ? (
+                <div className="flex justify-between items-center text-sm md:text-base gap-2">
+                  <p>
+                    สถานะโต๊ะปัจจุบัน:{' '}
+                    {hasTables && tableCount > 0 ? `มี ${tableCount} โต๊ะ` : 'ไม่มีโต๊ะ'}
+                  </p>
+                  <button
+                    onClick={() => setTableSaved(false)}
+                    className="px-3 py-1 bg-yellow-500 text-white rounded text-sm md:text-base"
+                  >
+                    แก้ไข
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2 md:gap-3 text-sm md:text-base">
+                  {/* เลือกว่ามีโต๊ะ */}
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      checked={hasTables}
+                      onChange={() => setHasTables(true)}
+                    />{' '}
+                    ร้านมีโต๊ะ
+                  </label>
+
+                  {/* input จำนวนโต๊ะ */}
+                  {hasTables && (
+                    <input
+                      type="number"
+                      min={0}
+                      value={tableCount > 0 ? tableCount : ''}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value) || 0;
+                        if (val <= 0) {
+                          // ถ้าเป็น 0 หรือติดลบ → ไม่มีโต๊ะ
+                          setHasTables(false);
+                          setTableCount(0);
+                        } else {
+                          setHasTables(true);
+                          setTableCount(val);
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        // อนุญาตเฉพาะตัวเลข, Backspace, Arrow keys, Delete, Tab
+                        if (
+                          !/[0-9]/.test(e.key) &&
+                          !['Backspace', 'ArrowLeft', 'ArrowRight', 'Delete', 'Tab'].includes(e.key)
+                        ) {
+                          e.preventDefault();
+                        }
+                      }}
+                      className="border px-2 py-1 rounded w-20 md:w-24 text-sm md:text-base"
+                    />
+                  )}
+
+                  {/* เลือกว่าร้านไม่มีโต๊ะ */}
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      checked={!hasTables}
+                      onChange={() => {
+                        setHasTables(false);
                         setTableCount(0);
-                      }}/> ร้านไม่มีโต๊ะ
-                    </label>
-                    <div className="flex gap-2">
-                      <button onClick={saveTableSettings} disabled={savingTables} 
-                        className="px-3 py-1 md:px-4 md:py-2 bg-indigo-600 text-white rounded text-sm md:text-base">
-                        {savingTables ? 'กำลังบันทึก...' : 'บันทึก'}
-                      </button>
-                      <button onClick={cancelTableEdit} 
-                        className="px-3 py-1 md:px-4 md:py-2 bg-gray-400 text-white rounded text-sm md:text-base">
-                        ยกเลิก
-                      </button>
-                    </div>
+                      }}
+                    />{' '}
+                    ร้านไม่มีโต๊ะ
+                  </label>
+
+                  {/* ปุ่มบันทึก / ยกเลิก */}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={saveTableSettings}
+                      disabled={savingTables}
+                      className="px-3 py-1 md:px-4 md:py-2 bg-indigo-600 text-white rounded text-sm md:text-base"
+                    >
+                      {savingTables ? 'กำลังบันทึก...' : 'บันทึก'}
+                    </button>
+                    <button
+                      onClick={cancelTableEdit}
+                      className="px-3 py-1 md:px-4 md:py-2 bg-gray-400 text-white rounded text-sm md:text-base"
+                    >
+                      ยกเลิก
+                    </button>
                   </div>
-                )
-              }
+                </div>
+              )}
             </div>
           )}
+
 
           {/* QR */}
           {activeTab==='qr' && store?._id && (
@@ -486,7 +541,7 @@ const downloadAllTableQRCodes = () => {
                       className={`rounded-xl shadow-md p-3 md:p-4 flex flex-col gap-2 border-2 transition
                         ${menu.isAvailable ? 'border-green-400 bg-green-50' : 'border-red-400 bg-red-50'}`}
                     >
-                      {menu.image && <img src={menu.image} alt={menu.name} className="w-full h-32 md:h-40 object-cover rounded-lg"/>}
+                      {menu.image && <img src={menu.image} alt={menu.name} className="w-full h-40 md:h-44 object-cover rounded-lg"/>}
                       <h3 className="font-semibold text-sm md:text-base">{menu.name}</h3>
                       <p className="text-xs md:text-sm">ราคา: {menu.price} บาท</p>
                       {menu.description && <p className="text-xs md:text-sm">{menu.description}</p>}
