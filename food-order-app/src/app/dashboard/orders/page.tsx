@@ -282,7 +282,28 @@ export default function DashboardOrdersPage() {
 
   return (
   <div className="flex h-screen bg-gray-100">
-    <Toaster position="top-center" />
+    <Toaster
+      position="top-center"
+      toastOptions={{
+        duration: 3000,
+        style: {
+          background: '#333',
+          color: '#fff',
+          fontSize: '16px',
+          padding: '12px 24px',
+          borderRadius: '12px',
+          textAlign: 'center',
+          minWidth: '250px',
+        },
+        success: {
+          style: { background: '#16a34a' }, // เขียว
+        },
+        error: {
+          style: { background: '#dc2626' }, // แดง
+        },
+      }}
+    />
+
 
     {/* Sidebar */}
     <div
@@ -470,16 +491,30 @@ export default function DashboardOrdersPage() {
             <>
               {/* คิวที่เหลือ */}
               {!showPaidOrders && (
-                <div className="flex justify-end mb-4">
+                <div className="flex justify-end mb-4 space-x-4 flex-wrap">
+                  {/* คิวปกติ */}
                   <div className="bg-red-100 text-red-700 font-bold px-4 py-2 rounded-lg shadow">
                     คิวที่เหลือ: {orders.filter(o => ['pending','accepted','preparing','finished','delivering'].includes(o.status)).length}
+                  </div>
+
+                  {/* มีลูกค้าเรียกเช็คบิล */}
+                  <div className="bg-yellow-100 text-yellow-800 font-bold px-4 py-2 rounded-lg shadow">
+                    มีโต๊ะเรียกเช็คบิล: {orders.filter(o => o.isCallBill && !['paid'].includes(o.status)).length}
                   </div>
                 </div>
               )}
 
               <div className="space-y-6">
                 {sortedOrders.map(order => (
-                  <div key={order._id} className="bg-white rounded-lg shadow-md border border-gray-200 p-5 relative">
+                  <div
+                    key={order._id}
+                    className={`rounded-lg shadow-md border p-5 relative
+                      ${
+                        !showPaidOrders && order.isCallBill
+                          ? 'bg-orange-100 border-orange-500' 
+                          : 'bg-white border-gray-200'
+                      }`}
+                  >
                     {/* ข้อมูลลูกค้า / โต๊ะ */}
                     <div className="flex justify-between items-start mb-4 flex-wrap gap-3">
                       <div>
@@ -489,6 +524,7 @@ export default function DashboardOrdersPage() {
                         </p>
                         <p className="text-sm text-gray-500">สั่งเมื่อ: {new Date(order.createdAt).toLocaleString()}</p>
                       </div>
+
 
                       <div className="text-right">
                         <p className="text-lg font-semibold text-gray-900">
