@@ -4,27 +4,9 @@ import { useEffect, useState } from 'react';
 import axios from 'axios';
 import toast, { Toaster } from 'react-hot-toast';
 import * as XLSX from 'xlsx';
-import {
-  FiCheckCircle,
-  FiClock,
-  FiBox,
-  FiTruck,
-  FiDollarSign,
-  FiCheck,
-  FiTrash2,
-  FiMenu,
+import {FiCheckCircle,FiClock,FiBox,FiTruck,FiDollarSign,FiCheck,FiTrash2,FiMenu,
 } from 'react-icons/fi';
-import {
-  LineChart,
-  Line,
-  BarChart,
-  Bar,
-  CartesianGrid,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
+import {LineChart,Line,BarChart,Bar,CartesianGrid,XAxis,YAxis,Tooltip,ResponsiveContainer,Legend,
 } from 'recharts';
 
 type AddOn = { id: string; name: string; price: number };
@@ -109,7 +91,7 @@ export default function DashboardOrdersPage() {
       }
     } catch (error: any) {
       if (error.response?.status === 403) {
-        toast.error('ร้านถูกระงับ');
+        toast.error('ขณะนี้ร้านถูกระงับอยู่ไม่สามมารถอัปเดตสถานะออเดอร์ได้');
         setIsSuspended(true);
       } else {
         toast.error('เกิดข้อผิดพลาดในการอัปเดตสถานะ');
@@ -123,38 +105,54 @@ export default function DashboardOrdersPage() {
     if (isSuspended) return toast.error('ร้านถูกระงับ ไม่สามารถลบออเดอร์ได้');
 
     toast(
-      (t) => (
-        <div className="flex flex-col gap-2">
-          <span>คุณแน่ใจว่าจะลบออเดอร์นี้หรือไม่?</span>
-          <div className="flex gap-2 justify-end">
-            <button className="px-3 py-1 bg-gray-400 rounded hover:bg-gray-700 " onClick={() => toast.dismiss(t.id)}>ยกเลิก</button>
-            <button
-              className="px-3 py-1 bg-red-500 rounded hover:bg-red-600 text-white"
-              onClick={async () => {
-                try {
-                  const res = await fetch(`/api/order/delete?orderId=${orderId}`, { method: 'DELETE' });
-                  const data = await res.json();
-                  if (data.success) {
-                    toast.success('ลบออเดอร์สำเร็จ');
-                    fetchOrders();
-                  } else {
-                    toast.error(`ลบออเดอร์ไม่สำเร็จ: ${data.message}`);
-                  }
-                } catch (err) {
-                  toast.error('เกิดข้อผิดพลาดในการลบออเดอร์');
-                  console.error(err);
-                } finally {
-                  toast.dismiss(t.id);
+    (t) => (
+      <div className="flex flex-col gap-3 w-72"> {/* กำหนดความกว้างคงที่ */}
+        <span className="text-center font-medium">คุณแน่ใจว่าจะลบออเดอร์นี้หรือไม่?</span>
+        <div className="flex gap-3 justify-center mt-2"> {/* ปุ่มอยู่กลาง */}
+          <button
+            className="px-4 py-1 bg-gray-400 rounded hover:bg-gray-700 text-white min-w-[80px]"
+            onClick={() => toast.dismiss(t.id)}
+          >
+            ยกเลิก
+          </button>
+          <button
+            className="px-4 py-1 bg-red-500 rounded hover:bg-red-600 text-white min-w-[80px]"
+            onClick={async () => {
+              try {
+                const res = await fetch(`/api/order/delete?orderId=${orderId}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (data.success) {
+                  toast.success('ลบออเดอร์สำเร็จ');
+                  fetchOrders();
+                } else {
+                  toast.error(`ลบออเดอร์ไม่สำเร็จ: ${data.message}`);
                 }
-              }}
-            >
-              ยืนยัน
-            </button>
-          </div>
+              } catch (err) {
+                toast.error('เกิดข้อผิดพลาดในการลบออเดอร์');
+                console.error(err);
+              } finally {
+                toast.dismiss(t.id);
+              }
+            }}
+          >
+            ยืนยัน
+          </button>
         </div>
-      ),
-      { duration: Infinity, position: 'top-center' }
-    );
+      </div>
+    ),
+    {
+      duration: Infinity,
+      position: 'top-center',
+      style: {
+        width: '400px',
+        maxWidth: '350px',
+        minWidth: '300px',
+        textAlign: 'center',
+        padding: '16px',
+        borderRadius: '12px',
+      },
+    }
+  );
   };
 
   const filterPaidOrdersByTime = (orders: Order[], filter: PaidTimeFilter) => {
@@ -280,102 +278,124 @@ export default function DashboardOrdersPage() {
     XLSX.writeFile(wb, fileName);
   };
 
-  return (
-  <div className="flex h-screen bg-gray-100">
-    <Toaster
-      position="top-center"
-      toastOptions={{
-        duration: 3000,
-        style: {
-          background: '#333',
-          color: '#fff',
-          fontSize: '16px',
-          padding: '12px 24px',
-          borderRadius: '12px',
-          textAlign: 'center',
-          minWidth: '250px',
-        },
-        success: {
-          style: { background: '#16a34a' }, // เขียว
-        },
-        error: {
-          style: { background: '#dc2626' }, // แดง
-        },
-      }}
-    />
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
 
+  return (
+  <div className="flex h-screen  bg-gray-50">
+    <Toaster
+        position="top-center"
+        toastOptions={{
+          duration: 3000,
+          style: {
+            background: '#333',
+            color: '#fff',
+            fontSize: '16px',
+            padding: '12px 24px',
+            borderRadius: '12px',
+            textAlign: 'center',
+            width: '400px',        // กำหนดความกว้างเท่ากันทุกอัน
+            boxSizing: 'border-box', // ป้องกัน padding ทำให้เกิน
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+          },
+          success: {
+            style: { background: '#16a34a', width: '400px', boxSizing: 'border-box' },
+          },
+          error: {
+            style: { background: '#dc2626', width: '400px', boxSizing: 'border-box' },
+          },
+        }}
+      />
+
+    {/* Navbar */}
+    <div className="flex items-center justify-between bg-green-400 text-gray-900 px-4 h-16 shadow-md fixed top-0 left-0 right-0 z-50">
+      <div className="flex items-center gap-2">
+        {/* ปุ่มมือถือ */}
+        <button
+          className="md:hidden px-2 py-1 bg-white text-gray-900 rounded-lg shadow"
+          onClick={() => setShowMobileMenu(!showMobileMenu)}
+        >
+          ☰
+        </button>
+
+        <h1 className="text-xl font-bold">จัดการออเดอร์</h1>
+      </div>
+
+      {/* เมนูมือถือ */}
+      {showMobileMenu && (
+        <div className="absolute top-16 left-4 bg-white shadow-lg rounded-xl p-3 flex flex-col gap-2 w-48 z-50 md:hidden">
+          <button
+            className="px-3 py-2 bg-gray-100 rounded-lg hover:bg-gray-200"
+            onClick={() => { setShowPaidOrders(false); fetchOrders(); setShowMobileMenu(false); }}
+          >
+            ดูออเดอร์ที่ยังไม่เสร็จ
+          </button>
+          <button
+            className="px-3 py-2 bg-gray-100 rounded-lg hover:bg-gray-200"
+            onClick={() => { setShowPaidOrders(true); fetchOrders(); setShowMobileMenu(false); }}
+          >
+            ดูออเดอร์ที่เสร็จสิ้น
+          </button>
+          {/* เพิ่มลิงก์อื่น ๆ ได้ตามต้องการ */}
+        </div>
+      )}
+    </div>
 
     {/* Sidebar */}
-    <div
-      className={`fixed top-0 left-0 z-40 w-64 h-screen bg-green-100 shadow-lg transform transition-transform duration-300
-        ${isSlideOpen ? 'translate-x-0' : '-translate-x-full'}
-        md:translate-x-0 md:static md:shadow-none`}
-    >
-      <nav className="flex flex-col gap-2 p-4 text-gray-700 mt-16">
+    <div className="hidden md:flex fixed top-0 left-0 z-40 w-64 h-screen bg-green-100 shadow-lg mt-16">
+      <nav className="w-full md:w-64 bg-green-100 text-gray-900 flex md:flex-col flex-row p-2 md:p-4 gap-2 md:gap-4 overflow-x-auto md:overflow-auto">
         <button
           onClick={() => { setShowPaidOrders(false); fetchOrders(); }}
-          className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-left border border-gray-300 shadow-sm font-semibold transition
-            ${!showPaidOrders 
-              ? 'bg-green-600 text-white shadow-lg' 
-              : 'bg-green-100 hover:bg-green-200 text-gray-700'}`}
+          className={`flex-1 md:flex-none p-2 md:p-3 rounded-lg text-left border border-gray-300 shadow-sm 
+            ${!showPaidOrders ? 'bg-green-600 text-white shadow-lg' : 'bg-green-100 hover:bg-green-200 text-gray-700'}`}
         >
           ดูออเดอร์ที่ยังไม่เสร็จ
         </button>
         <button
           onClick={() => { setShowPaidOrders(true); fetchOrders(); }}
-          className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-left border border-gray-300 shadow-sm font-semibold transition
-            ${showPaidOrders 
-              ? 'bg-green-600 text-white shadow-lg' 
-              : 'bg-green-100 hover:bg-green-200 text-gray-700'}`}
+          className={`flex-1 md:flex-none p-2 md:p-3 rounded-lg text-left border border-gray-300 shadow-sm
+            ${showPaidOrders ? 'bg-green-600 text-white shadow-lg' : 'bg-green-100 hover:bg-green-200 text-gray-700'}`}
         >
           ดูออเดอร์ที่เสร็จสิ้น
         </button>
       </nav>
-
     </div>
 
-    {/* Main Content */}
-    <div className="flex-1 flex flex-col">
-      {/* Navbar */}
-      <div className="flex items-center justify-between bg-green-400 text-gray-900 px-2 py-5 shadow-md fixed top-0 left-0 right-0 z-50">
-        <h1 className="text-xl font-bold">จัดการออเดอร์</h1>
-        <button className="md:hidden" onClick={() => setIsSlideOpen(!isSlideOpen)}>
-          <FiMenu size={24} />
-        </button>
-      </div>
 
-      {/* Content */}
-      <main className="flex-1 overflow-y-auto p-6 mt-16">
-        {/* การ์ดรวม content */}
-        <div className="bg-white rounded-2xl shadow-lg p-6 space-y-6">
-          {/* สรุป / เลือกช่วงเวลา / ดาวน์โหลด Excel */}
-          {showPaidOrders && !showSummary && (
-            <div className="flex flex-wrap items-center gap-4 bg-gray-50 p-4 rounded-md shadow-sm text-gray-900">
-              <label className="font-medium text-gray-700">เลือกช่วงเวลา:</label>
-              <select
-                value={paidTimeFilter}
-                onChange={(e) => setPaidTimeFilter(e.target.value as PaidTimeFilter)}
-                className="border px-3 py-1 rounded-md"
-              >
-                <option value="today">วันนี้</option>
-                <option value="yesterday">เมื่อวาน</option>
-                <option value="week">สัปดาห์นี้</option>
-                <option value="month">เดือนนี้</option>
-              </select>
-              <button
-                onClick={() => setShowSummary(true)}
-                className="px-2 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-              >
-                ดูสรุปทั้งหมด / กราฟ
-              </button>
-              <button
-                onClick={() => downloadExcel(filteredOrders, `Order_Summary_${paidTimeFilter}.xlsx`)}
-                className="px-2 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-              >
-                ดาวน์โหลด Excel
-              </button>
-            </div>
-          )}
+    {/* Main Content */}
+    <div className="flex-1 flex flex-col ml-0 md:ml-64"> 
+      <main className="flex-1 overflow-y-auto p-4 mt-16">
+          {/* การ์ดรวม content */}
+          <div className="bg-white rounded-2xl shadow-lg p-6 space-y-6">
+            {/* สรุป / เลือกช่วงเวลา / ดาวน์โหลด Excel */}
+            {showPaidOrders && !showSummary && (
+              <div className="flex flex-wrap items-center gap-4 bg-gray-50 p-4 rounded-md shadow-sm text-gray-900">
+                <label className="font-medium text-gray-700">เลือกช่วงเวลา:</label>
+                <select
+                  value={paidTimeFilter}
+                  onChange={(e) => setPaidTimeFilter(e.target.value as PaidTimeFilter)}
+                  className="border px-3 py-1 rounded-md"
+                >
+                  <option value="today">วันนี้</option>
+                  <option value="yesterday">เมื่อวาน</option>
+                  <option value="week">สัปดาห์นี้</option>
+                  <option value="month">เดือนนี้</option>
+                </select>
+                <button
+                  onClick={() => setShowSummary(true)}
+                  className="px-2 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                >
+                  ดูสรุปทั้งหมด / กราฟ
+                </button>
+                <button
+                  onClick={() => downloadExcel(filteredOrders, `Order_Summary_${paidTimeFilter}.xlsx`)}
+                  className="px-2 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                >
+                  ดาวน์โหลด Excel
+                </button>
+              </div>
+            )}
 
           {/* กราฟ */}
           {showPaidOrders && showSummary && (

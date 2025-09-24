@@ -190,43 +190,54 @@ export default function MenuPage() {
     if (!id) return;
 
      toast(
-      (t) => (
-        <div className="flex flex-col gap-2">
-          <span className=" font-medium">คุณแน่ใจว่าจะลบเมนูนี้หรือไม่?</span>
-          <div className="flex gap-2 justify-end mt-2">
-            <button
-              className="px-3 py-1 bg-gray-400 rounded hover:bg-gray-700 text-white"
-              onClick={() => toast.dismiss(t.id)}
-            >
-              ยกเลิก
-            </button>
-            <button
-              className="px-3 py-1 bg-red-500 rounded hover:bg-red-600 text-white"
-              onClick={async () => {
-                try {
-                  const res = await fetch(`/api/store/menu/delete?id=${id}`, { method: 'DELETE', credentials: 'include' });
-                  const data = await res.json();
-                  if (data.success) {
-                    setMenus((prev) => prev.filter((menu) => menu._id !== id));
-                    toast.success('ลบเมนูเรียบร้อย');
-                  } else {
-                    toast.error(`ลบเมนูไม่สำเร็จ: ${data.message}`);
-                  }
-                } catch (err) {
-                  toast.error('เกิดข้อผิดพลาดในการลบเมนู');
-                  console.error(err);
-                } finally {
-                  toast.dismiss(t.id);
-                }
-              }}
-            >
-              ยืนยัน
-            </button>
-          </div>
-        </div>
-      ),
-      { duration: Infinity, position: 'top-center' }
-    );
+  (t) => (
+    <div className="flex flex-col gap-3 w-72"> {/* กำหนดความกว้างคงที่ */}
+      <span className="font-medium text-center">คุณแน่ใจว่าจะลบเมนูนี้หรือไม่?</span>
+      <div className="flex gap-3 justify-center mt-2"> {/* จัดปุ่มให้อยู่กลาง */}
+        <button
+          className="px-4 py-1 bg-gray-400 rounded hover:bg-gray-700 text-white min-w-[80px]"
+          onClick={() => toast.dismiss(t.id)}
+        >
+          ยกเลิก
+        </button>
+        <button
+          className="px-4 py-1 bg-red-500 rounded hover:bg-red-600 text-white min-w-[80px]"
+          onClick={async () => {
+            try {
+              const res = await fetch(`/api/store/menu/delete?id=${id}`, { method: 'DELETE', credentials: 'include' });
+              const data = await res.json();
+              if (data.success) {
+                setMenus((prev) => prev.filter((menu) => menu._id !== id));
+                toast.success('ลบเมนูเรียบร้อย');
+              } else {
+                toast.error(`ลบเมนูไม่สำเร็จ: ${data.message}`);
+              }
+            } catch (err) {
+              toast.error('เกิดข้อผิดพลาดในการลบเมนู');
+              console.error(err);
+            } finally {
+              toast.dismiss(t.id);
+            }
+          }}
+        >
+          ยืนยัน
+        </button>
+      </div>
+    </div>
+  ),
+  {
+    duration: 5000, // กำหนดเวลา toast
+    style: {
+      width: '400px',    
+      maxWidth: '350px',
+      minWidth: '300px',
+      textAlign: 'center',
+      padding: '16px',
+      borderRadius: '12px',
+    },
+  }
+);
+
   };
 
   // เพิ่ม / แก้ไข Add-on
@@ -271,27 +282,36 @@ export default function MenuPage() {
   <div className="bg-gray-100 min-h-screen text-gray-900">
     {/* Toaster */}
     <Toaster
-      position="top-center"
-      toastOptions={{
-        duration: 3000,
-        style: {
-          background: '#333',
-          color: '#fff',
-          fontSize: '16px',
-          padding: '12px 24px',
-          borderRadius: '12px',
-          textAlign: 'center',
-          minWidth: '250px',
-        },
-        success: { style: { background: '#16a34a' } },
-        error: { style: { background: '#dc2626' } },
-      }}
-    />
+        position="top-center"
+        toastOptions={{
+          duration: 3000,
+          style: {
+            background: '#333',
+            color: '#fff',
+            fontSize: '16px',
+            padding: '12px 24px',
+            borderRadius: '12px',
+            textAlign: 'center',
+            width: '400px',        // กำหนดความกว้างเท่ากันทุกอัน
+            boxSizing: 'border-box', // ป้องกัน padding ทำให้เกิน
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+          },
+          success: {
+            style: { background: '#16a34a', width: '400px', boxSizing: 'border-box' },
+          },
+          error: {
+            style: { background: '#dc2626', width: '400px', boxSizing: 'border-box' },
+          },
+        }}
+      />
 
-    {/* Navbar กว้างเต็มจอ */}
-    <nav className="w-full bg-green-400 text-black p-5 shadow-md flex items-center justify-between">
+    {/* Navbar */}
+    <nav className="w-full bg-green-400 text-black h-16 px-5 shadow-md flex items-center justify-between">
       <h1 className="text-xl font-bold select-none">จัดการเมนูอาหาร</h1>
     </nav>
+
 
     {/* การ์ดใหญ่รวมทุกอย่าง */}
     <div className="max-w-4xl mx-auto mt-4 bg-white rounded-2xl shadow-lg p-2 md:p-2 space-y-4">

@@ -59,38 +59,42 @@ export default function RegisterPage() {
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setSubmitError('')
+  e.preventDefault()
+  setSubmitError('')
 
-    // ตรวจสอบ validation อีกครั้งก่อน submit
-    const phoneError = validatePhone(form.phone)
-    const passwordError = validatePassword(form.password)
-    setErrors({ phone: phoneError, password: passwordError })
+  // ตรวจสอบ validation อีกครั้งก่อน submit
+  const phoneError = validatePhone(form.phone)
+  const passwordError = validatePassword(form.password)
+  setErrors({ phone: phoneError, password: passwordError })
 
-    if (phoneError || passwordError) return
+  if (phoneError || passwordError) return
 
-    setLoading(true)
-    try {
-      const res = await fetch('/api/auth/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      })
+  setLoading(true)
+  try {
+    // สร้าง object ส่งไป API และเพิ่ม status เป็น 'active'
+    const payload = { ...form, status: 'active' }
 
-      const data = await res.json()
+    const res = await fetch('/api/auth/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
 
-      if (!res.ok) {
-        throw new Error(data.message || 'Signup failed')
-      }
+    const data = await res.json()
 
-      router.push('/login')
-    } catch (err: unknown) {
-      if (err instanceof Error) setSubmitError(err.message)
-      else setSubmitError('เกิดข้อผิดพลาดบางอย่าง')
-    } finally {
-      setLoading(false)
+    if (!res.ok) {
+      throw new Error(data.message || 'Signup failed')
     }
+
+    router.push('/login')
+  } catch (err: unknown) {
+    if (err instanceof Error) setSubmitError(err.message)
+    else setSubmitError('เกิดข้อผิดพลาดบางอย่าง')
+  } finally {
+    setLoading(false)
   }
+}
+
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">

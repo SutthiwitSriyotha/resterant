@@ -123,27 +123,84 @@ export default function DashboardPage() {
     setTableSaved(true);
   };
 
-// ฟังก์ชันดาวน์โหลด QR ร้าน (ของเดิม)
+// ✅ ฟังก์ชันช่วยวาดกรอบโค้ง
+function drawRoundedRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number,
+  strokeColor: string,
+  lineWidth: number
+) {
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.lineTo(x + width - radius, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+  ctx.lineTo(x + width, y + height - radius);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+  ctx.lineTo(x + radius, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+  ctx.lineTo(x, y + radius);
+  ctx.quadraticCurveTo(x, y, x + radius, y);
+  ctx.strokeStyle = strokeColor;
+  ctx.lineWidth = lineWidth;
+  ctx.stroke();
+}
+
+
+// ✅ ฟังก์ชันดาวน์โหลด QR ร้าน 
 const downloadQRCodeWithName = () => {
   if (!qrRef.current) return;
   const svg = qrRef.current.querySelector('svg');
   if (!svg) return;
+
   const serializer = new XMLSerializer();
   const svgStr = serializer.serializeToString(svg);
+
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
+
   const width = 300, height = 350;
   canvas.width = width;
   canvas.height = height;
-  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, width, height);
-  ctx.fillStyle = '#000000'; ctx.font = 'bold 20px sans-serif'; ctx.textAlign = 'center';
-  ctx.fillText(store?.name || '', width / 2, 40);
+
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, width, height);
+
+  // กรอบโค้ง
+  drawRoundedRect(ctx, 10, 10, width - 20, height - 20, 15, '#ccc', 2);
+
+  ctx.textAlign = 'center';
+  ctx.font = 'bold 20px sans-serif';
+  ctx.fillStyle = '#000000';
+
+  const splitTextToTwoLines = (text: string, maxWidth: number) => {
+    if (ctx.measureText(text).width <= maxWidth) return [text, ''];
+    let line1 = text, line2 = '';
+    while (ctx.measureText(line1).width > maxWidth) {
+      line2 = line1.slice(-1) + line2;
+      line1 = line1.slice(0, -1);
+    }
+    if (ctx.measureText(line2).width > maxWidth) {
+      while (ctx.measureText(line2 + '…').width > maxWidth) line2 = line2.slice(0, -1);
+      line2 += '…';
+    }
+    return [line1, line2];
+  };
+
+  const [line1, line2] = splitTextToTwoLines(store?.name || '', 260);
+  ctx.fillText(line1, width / 2, 40);
+  if (line2) ctx.fillText(line2, width / 2, 65);
+
   const img = new Image();
   const svgBlob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
   const url = URL.createObjectURL(svgBlob);
+
   img.onload = () => {
-    ctx.drawImage(img, (width-200)/2, 80, 200, 200);
+    ctx.drawImage(img, (width-200)/2, 90, 200, 200);
     URL.revokeObjectURL(url);
     const pngUrl = canvas.toDataURL('image/png');
     const a = document.createElement('a');
@@ -154,6 +211,8 @@ const downloadQRCodeWithName = () => {
   img.src = url;
 };
 
+
+
 // ✅ ฟังก์ชันดาวน์โหลด QR โต๊ะ (ทีละโต๊ะ)
 const downloadTableQRCode = (tableNo: number) => {
   const qrElement = document.getElementById(`qr-table-${tableNo}`);
@@ -163,6 +222,7 @@ const downloadTableQRCode = (tableNo: number) => {
 
   const serializer = new XMLSerializer();
   const svgStr = serializer.serializeToString(svg);
+
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
@@ -170,16 +230,42 @@ const downloadTableQRCode = (tableNo: number) => {
   const width = 300, height = 350;
   canvas.width = width;
   canvas.height = height;
-  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, width, height);
-  ctx.fillStyle = '#000000'; ctx.font = 'bold 20px sans-serif'; ctx.textAlign = 'center';
-  ctx.fillText(store?.name || '', width / 2, 40);       // ชื่อร้านด้านบน
-  ctx.fillText(`โต๊ะ ${tableNo}`, width / 2, 320);       // เลขโต๊ะด้านล่าง
+
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, width, height);
+
+  drawRoundedRect(ctx, 10, 10, width - 20, height - 20, 15, '#ccc', 2);
+
+  ctx.textAlign = 'center';
+  ctx.font = 'bold 20px sans-serif';
+  ctx.fillStyle = '#000000';
+
+  const splitTextToTwoLines = (text: string, maxWidth: number) => {
+    if (ctx.measureText(text).width <= maxWidth) return [text, ''];
+    let line1 = text, line2 = '';
+    while (ctx.measureText(line1).width > maxWidth) {
+      line2 = line1.slice(-1) + line2;
+      line1 = line1.slice(0, -1);
+    }
+    if (ctx.measureText(line2).width > maxWidth) {
+      while (ctx.measureText(line2 + '…').width > maxWidth) line2 = line2.slice(0, -1);
+      line2 += '…';
+    }
+    return [line1, line2];
+  };
+
+  const [line1, line2] = splitTextToTwoLines(store?.name || '', 260);
+  ctx.fillText(line1, width / 2, 40);
+  if (line2) ctx.fillText(line2, width / 2, 65);
+
+  ctx.fillText(`โต๊ะ ${tableNo}`, width / 2, 320);
 
   const img = new Image();
   const svgBlob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
   const url = URL.createObjectURL(svgBlob);
+
   img.onload = () => {
-    ctx.drawImage(img, (width-200)/2, 70, 200, 200);   // QR ตรงกลาง
+    ctx.drawImage(img, (width-200)/2, 90, 200, 200);
     URL.revokeObjectURL(url);
     const pngUrl = canvas.toDataURL('image/png');
     const a = document.createElement('a');
@@ -190,6 +276,8 @@ const downloadTableQRCode = (tableNo: number) => {
   img.src = url;
 };
 
+
+
 // ✅ ฟังก์ชันดาวน์โหลด QR ทุกโต๊ะรวมเป็นไฟล์เดียว
 const downloadAllTableQRCodes = () => {
   if (!hasTables || tableCount < 1) return;
@@ -198,32 +286,45 @@ const downloadAllTableQRCodes = () => {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
-  const qrSize = 120;
+  const qrSize = 115;
   const padding = 20;
   const cols = 4;
   const rows = Math.ceil(tableCount / cols);
+  const boxHeight = qrSize + 60;
 
   canvas.width = cols * (qrSize + padding) + padding;
-  canvas.height = rows * (qrSize + 60 + padding) + padding; // 60px สำหรับชื่อร้าน + เลขโต๊ะ
+  canvas.height = rows * (boxHeight + padding) + padding;
 
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = '#000000';
   ctx.textAlign = 'center';
   ctx.font = 'bold 12px sans-serif';
+  ctx.fillStyle = '#000000';
 
-  const loadQRImage = (tableNo: number) => {
-    return new Promise<HTMLImageElement>((resolve) => {
-      const svg = document.querySelector(`#qr-table-${tableNo} svg`);
-      if (!svg) return;
-      const serializer = new XMLSerializer();
-      const svgStr = serializer.serializeToString(svg);
-      const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const img = new Image();
-      img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
-      img.src = url;
-    });
+  const loadQRImage = (tableNo: number) => new Promise<HTMLImageElement>((resolve) => {
+    const svg = document.querySelector(`#qr-table-${tableNo} svg`);
+    if (!svg) return;
+    const serializer = new XMLSerializer();
+    const svgStr = serializer.serializeToString(svg);
+    const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+    img.src = url;
+  });
+
+  const splitTextToTwoLines = (text: string, maxWidth: number) => {
+    if (ctx.measureText(text).width <= maxWidth) return [text, ''];
+    let line1 = text, line2 = '';
+    while (ctx.measureText(line1).width > maxWidth) {
+      line2 = line1.slice(-1) + line2;
+      line1 = line1.slice(0, -1);
+    }
+    if (ctx.measureText(line2).width > maxWidth) {
+      while (ctx.measureText(line2 + '…').width > maxWidth) line2 = line2.slice(0, -1);
+      line2 += '…';
+    }
+    return [line1, line2];
   };
 
   (async () => {
@@ -232,11 +333,16 @@ const downloadAllTableQRCodes = () => {
       const col = (i - 1) % cols;
       const row = Math.floor((i - 1) / cols);
       const x = padding + col * (qrSize + padding);
-      const y = padding + row * (qrSize + 60 + padding);
+      const y = padding + row * (boxHeight + padding);
 
-      ctx.fillText(store?.name || '', x + qrSize/2, y + 15);     // ชื่อร้านด้านบน
-      ctx.drawImage(img, x, y + 20, qrSize, qrSize);             // QR
-      ctx.fillText(`โต๊ะ ${i}`, x + qrSize/2, y + qrSize + 45);  // เลขโต๊ะด้านล่าง
+      drawRoundedRect(ctx, x - 5, y - 5, qrSize + 10, boxHeight + 10, 10, '#ccc', 2);
+
+      const [line1, line2] = splitTextToTwoLines(store?.name || '', qrSize);
+      ctx.fillText(line1, x + qrSize / 2, y + 12);
+      if (line2) ctx.fillText(line2, x + qrSize / 2, y + 28);
+
+      ctx.drawImage(img, x, y + 35, qrSize, qrSize);
+      ctx.fillText(`โต๊ะ ${i}`, x + qrSize / 2, y + qrSize + 55);
     }
 
     const pngUrl = canvas.toDataURL('image/png');
@@ -246,6 +352,7 @@ const downloadAllTableQRCodes = () => {
     a.click();
   })();
 };
+
 
  const disableTableSettings = storeLoading || !store?._id;
 
@@ -282,20 +389,25 @@ const downloadAllTableQRCodes = () => {
             padding: '12px 24px',
             borderRadius: '12px',
             textAlign: 'center',
-            minWidth: '250px',
+            width: '400px',        // กำหนดความกว้างเท่ากันทุกอัน
+            boxSizing: 'border-box', // ป้องกัน padding ทำให้เกิน
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
           },
           success: {
-            style: { background: '#16a34a' },
+            style: { background: '#16a34a', width: '400px', boxSizing: 'border-box' },
           },
           error: {
-            style: { background: '#dc2626' }, 
+            style: { background: '#dc2626', width: '400px', boxSizing: 'border-box' },
           },
         }}
       />
 
 
+
       {/* Navbar */}
-      <div className="flex justify-between items-center bg-green-400 px-2 py-4 shadow-md relative">
+      <div className="flex justify-between items-center bg-green-400 px-2 h-16 shadow-md relative">
         <div className="md:hidden">
           <button
             onClick={() => setShowMobileMenu(!showMobileMenu)}
@@ -315,6 +427,8 @@ const downloadAllTableQRCodes = () => {
             </div>
           )}
         </div>
+
+
 
         <div className="text-gray-900 font-bold text-base md:text-xl">
           Dashboard {store?.name ? ` ${store.name}` : ''}
@@ -341,11 +455,11 @@ const downloadAllTableQRCodes = () => {
         <div className="w-full md:w-64 bg-green-100 text-gray-900 flex md:flex-col flex-row p-2 md:p-4 gap-2 md:gap-4 overflow-x-auto md:overflow-auto">
           <button onClick={() => setActiveTab('table')} className={`flex-1 md:flex-none p-2 md:p-3 rounded-lg text-left border border-gray-300 shadow-sm ${activeTab==='table' ? 'bg-green-600 text-white shadow-lg' : 'bg-green-100 hover:bg-green-200'} transition text-sm md:text-base`}>ตั้งค่าโต๊ะร้าน</button>
           <button onClick={() => setActiveTab('qr')} className={`flex-1 md:flex-none p-2 md:p-3 rounded-lg text-left border border-gray-300 shadow-sm ${activeTab==='qr' ? 'bg-green-600 text-white shadow-lg' : 'bg-green-100 hover:bg-green-200'} transition text-sm md:text-base`}>QR สั่งอาหาร</button>
-          <button onClick={() => setActiveTab('menu')} className={`flex-1 md:flex-none p-2 md:p-3 rounded-lg text-left border border-gray-300 shadow-sm ${activeTab==='menu' ? 'bg-green-600 text-white shadow-lg' : 'bg-green-100 hover:bg-green-200'} transition text-sm md:text-base `}>อัพเดทสถานะร้าน</button>
+          <button onClick={() => setActiveTab('menu')} className={`flex-1 md:flex-none p-2 md:p-3 rounded-lg text-left border border-gray-300 shadow-sm ${activeTab==='menu' ? 'bg-green-600 text-white shadow-lg' : 'bg-green-100 hover:bg-green-200'} transition text-sm md:text-base `}>อัพเดตสถานะร้าน</button>
         </div>
 
         {/* Content */}
-        <div className="flex-1 p-4 md:p-6 overflow-auto relative">
+        <div className="flex-1 p-4 md:p-4 overflow-auto relative">
 
           {/* ตั้งค่าโต๊ะร้าน */}
           {activeTab === 'table' && (
@@ -362,7 +476,7 @@ const downloadAllTableQRCodes = () => {
                   </p>
                   <button
                     onClick={() => setTableSaved(false)}
-                    className="px-3 py-1 bg-yellow-500 text-white rounded text-sm md:text-base"
+                    className="px-4 py-2  bg-yellow-500 text-white rounded-xl text-sm hover:bg-yellow-600 md:text-base"
                   >
                     แก้ไข
                   </button>
@@ -405,7 +519,7 @@ const downloadAllTableQRCodes = () => {
                           e.preventDefault();
                         }
                       }}
-                      className="border px-2 py-1 rounded w-20 md:w-24 text-sm md:text-base"
+                      className="border px-2 py-1 rounded-lg w-20 md:w-24 text-sm md:text-base"
                     />
                   )}
 
@@ -427,13 +541,13 @@ const downloadAllTableQRCodes = () => {
                     <button
                       onClick={saveTableSettings}
                       disabled={savingTables}
-                      className="px-3 py-1 md:px-4 md:py-2 bg-indigo-600 text-white rounded text-sm md:text-base"
+                      className="px-3 py-1 md:px-4 md:py-2 bg-indigo-500 text-white rounded-xl text-sm hover:bg-indigo-600 md:text-base"
                     >
                       {savingTables ? 'กำลังบันทึก...' : 'บันทึก'}
                     </button>
                     <button
                       onClick={cancelTableEdit}
-                      className="px-3 py-1 md:px-4 md:py-2 bg-gray-400 text-white rounded text-sm md:text-base"
+                      className="px-3 py-1 md:px-4 md:py-2 bg-gray-500 text-white rounded-xl text-sm  hover:bg-gray-600 md:text-base"
                     >
                       ยกเลิก
                     </button>
@@ -451,9 +565,9 @@ const downloadAllTableQRCodes = () => {
                 <h2 className="text-base md:text-lg font-semibold">QR สั่งอาหาร</h2>
                 <button
                   onClick={() => setShowQRCode(!showQRCode)}
-                  className="px-3 py-1 md:px-3 md:py-1 bg-indigo-600 text-white rounded text-sm md:text-base"
+                  className="px-4 py-2  md:px-3  rounded-xl  bg-indigo-600 text-white  text-sm  hover:bg-indigo-700 md:text-base"
                 >
-                  {showQRCode ? 'ไม่ต้องแสดง' : 'แสดง QR Code'}
+                  {showQRCode ? 'ปิดการแสดง QR' : 'แสดง QR Code'}
                 </button>
               </div>
 
@@ -462,12 +576,16 @@ const downloadAllTableQRCodes = () => {
                   {/* QR ร้าน */}
                   <div className="flex flex-col items-center gap-2">
                     <p className="font-medium">QR สั่งอาหาร (ของร้าน)</p>
-                    <div id="qr-store" ref={qrRef}>
+                    <div
+                      id="qr-store"
+                      ref={qrRef}
+                      className="p-4 border-2 border-gray-300 rounded-lg shadow-md bg-white"
+                    >
                       <QRCode value={`${window.location.origin}/order/${store._id}`} size={150} />
                     </div>
                     <button
                       onClick={downloadQRCodeWithName}
-                      className="px-3 py-1 md:px-4 md:py-2 bg-indigo-600 text-white rounded flex items-center gap-2 text-sm md:text-base"
+                      className="px-3 py-1 md:px-4 md:py-2 bg-green-600 text-white rounded-lg flex items-center gap-1 text-sm hover:bg-green-700 md:text-base"
                     >
                       <FaDownload /> ดาวน์โหลด QR ร้าน
                     </button>
@@ -481,7 +599,10 @@ const downloadAllTableQRCodes = () => {
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                           {Array.from({ length: tableCount }, (_, i) => i + 1).map((tableNo) => (
                             <div key={tableNo} className="flex flex-col items-center gap-1">
-                              <div id={`qr-table-${tableNo}`}>
+                              <div
+                                id={`qr-table-${tableNo}`}
+                                className="p-3 border-2 border-gray-300 rounded-lg shadow-md bg-white"
+                              >
                                 <QRCode
                                   value={`${window.location.origin}/order/${store._id}?table=${tableNo}`}
                                   size={120}
@@ -490,7 +611,7 @@ const downloadAllTableQRCodes = () => {
                               <p className="text-sm font-medium">โต๊ะ {tableNo}</p>
                               <button
                                 onClick={() => downloadTableQRCode(tableNo)}
-                                className="px-2 py-1 bg-indigo-600 text-white rounded flex items-center gap-1 text-xs mt-1"
+                                className="px-2 py-2 bg-green-600 text-white rounded-lg flex items-center hover:bg-green-700 gap-1 text-xs mt-1"
                               >
                                 <FaDownload /> โหลด QR โต๊ะ {tableNo}
                               </button>
@@ -499,7 +620,7 @@ const downloadAllTableQRCodes = () => {
                         </div>
                         <button
                           onClick={downloadAllTableQRCodes}
-                          className="mt-4 px-3 py-2 bg-green-600 text-white rounded flex items-center gap-2 text-sm md:text-base"
+                          className="mt-4 px-3 py-2 bg-green-600 text-white rounded-lg flex items-center justify-center gap-2 hover:bg-green-700 text-sm md:text-base "
                         >
                           <FaDownload /> ดาวน์โหลด QR ทุกโต๊ะ
                         </button>
@@ -511,52 +632,71 @@ const downloadAllTableQRCodes = () => {
             </div>
           )}
 
-          {/* เมนู */}
+          {/* สถานะร้าน/เมนู */}
           {activeTab==='menu' && (
-            <div className="bg-white rounded-xl shadow-md p-4 md:p-6 animate-slide-in">
-              <h2 className="text-base md:text-lg font-semibold mb-3 md:mb-4">อัพเดทสถานะร้านและเมนูที่เพิ่มไว้</h2>
+          <div className="bg-white rounded-xl shadow-md p-4 md:p-6 animate-slide-in">
+            <div className="flex justify-between items-start mb-4">
+              {/* ชื่อหัวข้อและสถานะร้าน */}
+              <div>
+                <h2 className="text-base md:text-lg font-semibold mb-2">
+                  อัพเดตสถานะร้านและเมนูที่เพิ่มไว้
+                </h2>
+                <p className="text-sm md:text-base font-medium">
+                  สถานะร้าน: {storeStatus === 'active' ? <span className="text-green-600 font-semibold">ร้านเปิดอยู่</span> : <span className="text-yellow-500 font-semibold">ร้านปิดชั่วคราว</span>}
+                </p>
+              </div>
 
-              {/* ปุ่มเปิด/ปิดร้าน */}
-              <div className="mb-4">
+              {/* ปุ่มเปิด/ปิดร้าน อยู่ขวาบน */}
+              <div>
                 <button
                   disabled={loading}
-                  onClick={toggleStoreStatus} // ไม่ต้องส่งค่าแล้ว
+                  onClick={toggleStoreStatus} 
                   className={`px-4 py-2 rounded-xl text-white ${
                     storeStatus === 'active' ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-green-600 hover:bg-green-700'
                   }`}
                 >
-                  {storeStatus === 'active' ? 'กดเพื่อปิดร้านชั่วคราว' : 'กดเพื่อเปิดร้าน'}
+                  {storeStatus === 'active' ? 'ปิดร้าน' : 'เปิดร้าน'}
                 </button>
               </div>
+            </div>
 
-              {menuLoading ? (
-                <p>กำลังโหลดเมนูร้าน...</p>
-              ) : menus.length===0 ? (
-                <p>ยังไม่มีเมนูอาหาร</p>
-              ) : (
-                <ul className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
-                  {menus.map(menu => (
-                    <li
-                      key={menu._id}
-                      className={`rounded-xl shadow-md p-3 md:p-4 flex flex-col gap-2 border-2 transition
-                        ${menu.isAvailable ? 'border-green-400 bg-green-50' : 'border-red-400 bg-red-50'}`}
-                    >
-                      {menu.image && <img src={menu.image} alt={menu.name} className="w-full h-40 md:h-44 object-cover rounded-lg"/>}
+            {menuLoading ? (
+              <p>กำลังโหลดเมนูร้าน...</p>
+            ) : menus.length === 0 ? (
+              <p>ยังไม่มีเมนูอาหาร</p>
+            ) : (
+              <ul className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
+                {menus.map(menu => (
+                  <li
+                    key={menu._id}
+                    className={`rounded-xl shadow-md p-3 md:p-4 flex flex-col gap-2 border-2 transition
+                      ${menu.isAvailable ? 'border-green-400 bg-green-50' : 'border-yellow-500 bg-yellow-50'}`}
+                  >
+                    {menu.image && <img src={menu.image} alt={menu.name} className="w-full h-40 md:h-44 object-cover rounded-lg"/>}
+
+                    {/* ชื่อและสถานะเมนู */}
+                    <div className="flex justify-between items-center">
                       <h3 className="font-semibold text-sm md:text-base">{menu.name}</h3>
-                      <p className="text-xs md:text-sm">ราคา: {menu.price} บาท</p>
-                      {menu.description && <p className="text-xs md:text-sm">{menu.description}</p>}
-                      {menu.addOns && menu.addOns.length>0 && (
-                        <div className="flex flex-wrap gap-1 text-xs md:text-sm">
-                          {menu.addOns.map(a => <span key={a.id} className="bg-gray-200 px-2 py-1 rounded-full">{a.name}+{a.price}</span>)}
-                        </div>
-                      )}
-                      <button
-                        onClick={() => toggleMenuAvailability(menu)}
-                        className={`px-3 py-1 rounded-md text-white text-sm md:text-base transition ${
-                          menu.isAvailable ? 'bg-green-600 hover:bg-green-700' : 'bg-red-500 hover:bg-red-600'
-                        }`}
-                      >
-                        {menu.isAvailable ? 'เปลี่ยนเป็นไม่พร้อมขาย' : 'เปลี่ยนเป็นพร้อมขาย'}
+                      <span className={`text-xs md:text-sm font-medium ${menu.isAvailable ? 'text-green-600' : 'text-yellow-500'}`}>
+                        {menu.isAvailable ? 'พร้อมขาย' : 'ไม่พร้อมขาย'}
+                      </span>
+                    </div>
+
+                    <p className="text-xs md:text-sm">ราคา: {menu.price} บาท</p>
+                    {menu.description && <p className="text-xs md:text-sm">{menu.description}</p>}
+                    {menu.addOns && menu.addOns.length > 0 && (
+                      <div className="flex flex-wrap gap-1 text-xs md:text-sm">
+                        {menu.addOns.map(a => <span key={a.id} className="bg-gray-200 px-2 py-1 rounded-full">{a.name}+{a.price}</span>)}
+                      </div>
+                    )}
+
+                    <button
+                      onClick={() => toggleMenuAvailability(menu)}
+                      className={`px-3 py-2 rounded-lg text-white text-sm md:text-base transition ${
+                        menu.isAvailable ? 'bg-green-600 hover:bg-green-700' : 'bg-yellow-500 hover:bg-yellow-600'
+                      }`}
+                    >
+                      {menu.isAvailable ? 'เปลี่ยนเป็นไม่พร้อมขาย' : 'เปลี่ยนเป็นพร้อมขาย'}
                       </button>
                     </li>
                   ))}

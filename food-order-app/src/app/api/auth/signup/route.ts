@@ -32,7 +32,8 @@ export async function POST(request: NextRequest) {
     tableCount: hasTables ? Number(tablesCount) : 0
   },
   role: 'store',       
-  isSuspended: false, 
+  isSuspended: false,
+  status: 'active', 
 })
 
 

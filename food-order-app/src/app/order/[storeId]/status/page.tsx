@@ -130,7 +130,7 @@ export default function OrderStatusPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Navbar */}
-      <div className="bg-green-400 text-gray-900 py-5 shadow-md sticky top-0 z-50">
+      <div className="w-full bg-green-400 text-black h-16 px-5 shadow-md flex items-center justify-between">
         <h1 className="text-left text-xl font-bold px-6">ตรวจสอบสถานะออเดอร์</h1>
       </div>
 
