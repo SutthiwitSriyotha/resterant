@@ -318,6 +318,11 @@ export default function MenuPage() {
       
       {/* การ์ดย่อย 1: ฟอร์มเพิ่ม/แก้ไขเมนู */}
       <div className="bg-gray-50 rounded-xl shadow-inner p-4 md:p-6 space-y-5">
+        {/* หัวข้อแบบ Dynamic */}
+        <h2 className="text-xl font-bold text-gray-800">
+          {editId ? 'แก้ไขเมนูอาหาร' : 'เพิ่มเมนูอาหาร'}
+        </h2>
+
         {storeSuspended && (
           <p className="text-red-600 font-semibold">
             ร้านถูกระงับ คุณไม่สามารถแก้ไขหรือเพิ่มเมนูได้กรุณาติดต่อผู้ดูแลระบบ
