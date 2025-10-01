@@ -56,7 +56,7 @@ type PaidTimeFilter = 'day' | 'week' | 'month';
 
 export default function DashboardOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
   const [showPaidOrders, setShowPaidOrders] = useState(false);
   const [isSuspended, setIsSuspended] = useState(false);
@@ -68,6 +68,7 @@ export default function DashboardOrdersPage() {
   const [showSummary, setShowSummary] = useState(false);
   const [graphType, setGraphType] = useState<'line' | 'bar'>('line');
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  
 
   useEffect(() => {
     fetchStoreInfo();
@@ -84,18 +85,20 @@ export default function DashboardOrdersPage() {
     }
   };
 
-  const fetchOrders = async () => {
-    setLoading(true);
-    try {
-      const res = await axios.get('/api/order/list', { withCredentials: true });
-      setOrders(res.data.orders || []);
-    } catch (err: any) {
-      if (err.response?.status === 401) window.location.href = '/login';
-      else toast.error('เกิดข้อผิดพลาดในการโหลดออเดอร์');
-      console.error(err);
+  const fetchOrders = async (isPolling = false) => {
+  try {
+    const res = await axios.get('/api/order/list', { withCredentials: true });
+    const newOrders: Order[] = res.data.orders || [];
+
+    // เปรียบเทียบถ้ามีการเปลี่ยนแปลงเท่านั้น
+    const isDifferent = JSON.stringify(newOrders) !== JSON.stringify(orders);
+    if (isDifferent) {
+      setOrders(newOrders);
     }
-    setLoading(false);
-  };
+  } catch (err) {
+    console.error('เกิดข้อผิดพลาดในการโหลดออเดอร์', err);
+  }
+};
 
   const updateStatus = async (orderId: string, newStatus: string) => {
   if (isSuspended || updatingOrderId) return;
@@ -313,14 +316,9 @@ export default function DashboardOrdersPage() {
   };
   
   useEffect(() => {
-  fetchStoreInfo();
-  fetchOrders();
-
-  const interval = setInterval(() => {
-    fetchOrders();
-  }, 15000); 
-
-  return () => clearInterval(interval); // cleanup ตอนออกจากหน้า
+  fetchOrders(); // โหลดครั้งแรก
+  const interval = setInterval(() => fetchOrders(true), 15000); // polling ทุก 15 วิ
+  return () => clearInterval(interval);
 }, []);
 
 
@@ -576,32 +574,27 @@ export default function DashboardOrdersPage() {
             </div>
           )}
 
-          {/* Loader / Orders List */}
-          {loading ? (
-            <div className="flex justify-center py-12">
-              <svg className="animate-spin h-10 w-10 text-indigo-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-              </svg>
-            </div>
-          ) : sortedOrders.length === 0 ? (
-            <p className="text-center text-gray-600 text-lg mt-12">ไม่มีออเดอร์ในรายการนี้</p>
-          ) : (
-            <>
-              {/* คิวที่เหลือ */}
-              {!showPaidOrders && (
-                <div className="flex justify-end mb-4 space-x-4 flex-wrap">
-                  {/* คิวปกติ */}
-                  <div className="bg-red-100 text-red-700 font-bold px-4 py-2 rounded-lg shadow">
-                    คิวที่เหลือ: {orders.filter(o => ['pending','accepted','preparing','finished','delivering'].includes(o.status)).length}
-                  </div>
+          {/* Orders List */}
+          <>
+            {/* ถ้าไม่มีออเดอร์ */}
+            {sortedOrders.length === 0 && (
+              <p className="text-center text-gray-600 text-lg mt-12">ไม่มีออเดอร์ในรายการนี้</p>
+            )}
 
-                  {/* มีลูกค้าเรียกเช็คบิล */}
-                  <div className="bg-yellow-100 text-yellow-800 font-bold px-4 py-2 rounded-lg shadow">
-                    มีโต๊ะเรียกเช็คบิล: {orders.filter(o => o.isCallBill && !['paid'].includes(o.status)).length}
-                  </div>
+            {/* คิวและเช็คบิล (ถ้าไม่ใช่ paid) */}
+            {!showPaidOrders && sortedOrders.length > 0 && (
+              <div className="flex justify-end mb-4 space-x-4 flex-wrap">
+                {/* คิวปกติ */}
+                <div className="bg-red-100 text-red-700 font-bold px-4 py-2 rounded-lg shadow">
+                  คิวที่เหลือ: {orders.filter(o => ['pending','accepted','preparing','finished','delivering'].includes(o.status)).length}
                 </div>
-              )}
+
+                {/* มีลูกค้าเรียกเช็คบิล */}
+                <div className="bg-yellow-100 text-yellow-800 font-bold px-4 py-2 rounded-lg shadow">
+                  มีโต๊ะเรียกเช็คบิล: {orders.filter(o => o.isCallBill && !['paid'].includes(o.status)).length}
+                </div>
+              </div>
+            )}
 
               {(() => {
                 // ✅ สร้าง queue ใหม่เฉพาะออเดอร์ที่ยังไม่ paid
@@ -729,8 +722,6 @@ export default function DashboardOrdersPage() {
                 );
               })()}
             </>
-          )}
-
         </div>
       </main>
     </div>

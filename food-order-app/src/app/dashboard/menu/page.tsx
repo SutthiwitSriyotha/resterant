@@ -4,6 +4,10 @@ import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import axios from 'axios';
 import toast, { Toaster } from 'react-hot-toast';
+import Cropper from 'react-easy-crop';
+
+type Area = { x: number; y: number; width: number; height: number };
+
 
 interface AddOn {
   id: string;
@@ -36,6 +40,12 @@ export default function MenuPage() {
   const [isDirty, setIsDirty] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const formRef = useRef<HTMLDivElement>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
+  const [showCropper, setShowCropper] = useState(false);
+
 
   useEffect(() => {
     const fetchMenus = async () => {
@@ -106,6 +116,24 @@ export default function MenuPage() {
       setIsSaving(false);
     }
   };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  setImageFile(file);
+  const url = URL.createObjectURL(file);
+  setPreviewUrl(url);
+  setShowCropper(true); 
+};
+
+const handleEditImage = (menu: MenuItem) => {
+  if (!menu.image) return;
+  setPreviewUrl(menu.image);  // รูปเดิม
+  setShowCropper(true);       // เปิด crop modal
+  setImageFile(null);         // ยังไม่ได้เลือกไฟล์ใหม่
+};
+
 
   const saveMenu = async (base64Image?: string) => {
     const menuData: any = {
@@ -278,6 +306,80 @@ export default function MenuPage() {
     toast.success('ลบ Add-on เรียบร้อย');
   };
 
+  async function getCroppedImg(imageSrc: string, crop: any): Promise<string | null> {
+  const image = await createImage(imageSrc);
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+
+  if (!ctx) return null;
+
+  const scaleX = image.naturalWidth / image.width;
+  const scaleY = image.naturalHeight / image.height;
+
+  canvas.width = crop.width;
+  canvas.height = crop.height;
+
+  ctx.drawImage(
+    image,
+    crop.x * scaleX,
+    crop.y * scaleY,
+    crop.width * scaleX,
+    crop.height * scaleY,
+    0,
+    0,
+    crop.width,
+    crop.height
+  );
+
+  return canvas.toDataURL("image/jpeg");
+}
+
+function createImage(url: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    if (typeof window === "undefined") {
+      reject(new Error("Image can only be created in the browser"));
+      return;
+    }
+
+    const img = new window.Image();
+    img.addEventListener("load", () => resolve(img));
+    img.addEventListener("error", () =>
+      reject(new Error("Failed to load image"))
+    );
+    img.setAttribute("crossOrigin", "anonymous");
+    img.src = url;
+  });
+}
+
+
+async function urlToFile(url: string, filename: string): Promise<File> {
+  const res = await fetch(url);
+  const blob = await res.blob();
+  return new File([blob], filename, { type: blob.type });
+}
+
+const onCropComplete = (croppedArea: Area, croppedAreaPixels: Area) => {
+  setCroppedAreaPixels(croppedAreaPixels);
+};
+
+const handleCropSave = async () => {
+  if (!previewUrl || !croppedAreaPixels) return;
+
+  const croppedImage = await getCroppedImg(previewUrl, croppedAreaPixels);
+
+  if (croppedImage) {
+    setPreviewUrl(croppedImage); // อัปเดตรูป preview
+    // ถ้ามีไฟล์ใหม่ ให้แปลง base64 เป็น File
+    const file = await urlToFile(croppedImage, 'menu.jpg');
+    setImageFile(file);
+  }
+
+  setShowCropper(false); // ปิด modal
+};
+
+
+
+
   return (
   <div className="bg-gray-100 min-h-screen text-gray-900">
     {/* Toaster */}
@@ -371,16 +473,40 @@ export default function MenuPage() {
           </div>
 
           {/* Upload รูป */}
-          <div className="space-y-1">
-            <label className="block text-sm font-medium">อัปโหลดรูป</label>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(e) => setImageFile(e.target.files?.[0] || null)}
-              className="w-full"
+        <div className="space-y-1">
+          <label className="block text-sm font-medium">อัปโหลดรูป</label>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleFileChange}   // เรียกฟังก์ชัน handleFileChange
+            className="w-full"
+            disabled={storeSuspended}
+          />
+        </div>
+
+        {/* แสดงรูป preview และปุ่มแก้ไข */}
+        {previewUrl && (
+          <div className="mt-2 flex flex-col items-center gap-2">
+            <div className="w-full max-w-sm h-48 bg-gray-200 rounded-lg overflow-hidden">
+              <img
+                src={previewUrl}
+                alt="Preview"
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowCropper(true)}  // เปิด modal ครอปรูป
+              className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
               disabled={storeSuspended}
-            />
+            >
+              แก้ไขรูปเดิม
+            </button>
           </div>
+        )}
+
+
+
 
           {/* Add-ons */}
           <div className="space-y-2 border-t pt-4">
@@ -468,6 +594,58 @@ export default function MenuPage() {
           </div>
         </div>
       </div>
+
+      {/* Modal Cropper */}
+      {showCropper && previewUrl && (
+      <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg p-6 shadow-xl w-[90%] max-w-lg">
+          <h2 className="text-lg font-semibold mb-4">ครอปรูป</h2>
+
+          <div className="relative w-full h-48 bg-gray-100">
+            <Cropper
+              image={previewUrl}       
+              crop={crop}              
+              zoom={zoom}              
+              aspect={500 / 300}       
+              onCropChange={setCrop}
+              onZoomChange={setZoom}
+              onCropComplete={onCropComplete}
+              showGrid={true}          
+              restrictPosition={false} 
+              cropShape="rect"         
+            />
+          </div>
+
+          <div className="mt-4">
+            <input
+              type="range"
+              min={1}
+              max={3}
+              step={0.01}
+              value={zoom}
+              onChange={(e) => setZoom(Number(e.target.value))}
+              className="w-full"
+            />
+          </div>
+
+          <div className="mt-4 flex justify-end gap-3">
+            <button
+              onClick={() => setShowCropper(false)}
+              className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300"
+            >
+              ยกเลิก
+            </button>
+            <button
+              onClick={handleCropSave}
+              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+            >
+              ยืนยัน
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
 
       {/* การ์ดย่อย 2: รายการเมนู */}
       <div className="bg-gray-50 rounded-xl shadow-inner p-4 md:p-6 space-y-2">
