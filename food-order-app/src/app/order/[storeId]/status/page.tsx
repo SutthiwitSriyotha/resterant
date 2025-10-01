@@ -127,6 +127,18 @@ export default function OrderStatusPage() {
     }
   };
 
+    // Polling ทุก 10 วินาที
+  useEffect(() => {
+    if (!identifier.trim()) return;
+
+    const interval = setInterval(() => {
+      fetchOrderStatus();
+    }, 10000); 
+
+    return () => clearInterval(interval); // ล้างเมื่อ component unmount
+  }, [identifier, storeId]);
+
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Navbar */}
@@ -136,7 +148,7 @@ export default function OrderStatusPage() {
 
       {/* Main card */}
       <div className="max-w-4xl mx-auto p-4">
-        <div className="bg-white rounded-2xl shadow-md border border-gray-300 p-6 space-y-6 animate-slide-in">
+        <div className="bg-white rounded-2xl shadow-md border border-gray-300 p-2 space-y-6 animate-slide-in">
           {/* ช่องกรอก/เลือกโต๊ะ */}
           <div className="flex gap-2 items-center">
             {activeTables === null ? (
@@ -199,7 +211,14 @@ export default function OrderStatusPage() {
               {orders.map((order) => {
                 const currentStatus = STATUS_LIST.find((s) => s.key === order.status);
                 return (
-                  <div key={order._id} className="p-4 rounded-xl border border-gray-200 flex flex-col gap-3 bg-gray-50 shadow-sm">
+                  <div
+                    key={order._id}
+                    className={`p-4 rounded-xl border flex flex-col gap-3 shadow-sm transition
+                      ${order.status === 'delivered'
+                        ? 'bg-green-100 border-green-400'
+                        : 'bg-gray-50 border-gray-200'
+                      }`}
+                  >
                     <h3 className="text-md font-semibold text-gray-800">
                       {order.customerName
                         ? `ชื่อลูกค้า: ${order.customerName}`
@@ -228,7 +247,7 @@ export default function OrderStatusPage() {
                       ))}
                     </ul>
 
-                    <p className="font-semibold text-gray-900 mt-0 text-lg">
+                    <p className="font-semibold text-green-800 mt-0 text-base">
                       รวมราคา: {order.totalPrice?.toLocaleString() ?? '0'} บาท
                     </p>
 
