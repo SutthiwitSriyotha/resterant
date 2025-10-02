@@ -117,21 +117,22 @@ export default function MenuPage() {
     }
   };
 
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
   const file = e.target.files?.[0];
-  if (!file) return;
+  if (!file) {
+    // ถ้ายกเลิกการเลือกไฟล์ -> reset ค่า
+    setImageFile(null);
+    setPreviewUrl(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    return;
+  }
 
   setImageFile(file);
   const url = URL.createObjectURL(file);
   setPreviewUrl(url);
-  setShowCropper(true); 
-};
-
-const handleEditImage = (menu: MenuItem) => {
-  if (!menu.image) return;
-  setPreviewUrl(menu.image);  // รูปเดิม
-  setShowCropper(true);       // เปิด crop modal
-  setImageFile(null);         // ยังไม่ได้เลือกไฟล์ใหม่
+  setShowCropper(true);
 };
 
 
@@ -183,17 +184,22 @@ const handleEditImage = (menu: MenuItem) => {
   };
 
   const resetForm = () => {
-    setName('');
-    setPrice('');
-    setDescription('');
-    setImageFile(null);
-    setEditId(null);
-    setAddOnsArray([]);
-    setNewAddOnName('');
-    setNewAddOnPrice('');
-    setEditAddOnId(null);
-    setIsDirty(false);
-  };
+  setName('');
+  setPrice('');
+  setDescription('');
+  setImageFile(null);
+  setPreviewUrl(null);  
+  setEditId(null);
+  setAddOnsArray([]);
+  setNewAddOnName('');
+  setNewAddOnPrice('');
+  setEditAddOnId(null);
+  setIsDirty(false);
+
+  if (fileInputRef.current) fileInputRef.current.value = "";
+};
+
+
 
   const handleEdit = (menu: MenuItem) => {
     if (storeSuspended) {
@@ -422,7 +428,7 @@ const handleCropSave = async () => {
       <div className="bg-gray-50 rounded-xl shadow-inner p-4 md:p-6 space-y-5">
         {/* หัวข้อแบบ Dynamic */}
         <h2 className="text-xl font-bold text-gray-800">
-          {editId ? 'แก้ไขเมนูอาหาร' : 'เพิ่มเมนูอาหาร'}
+          {editId ? 'แก้ไขเมนูอาหาร' : 'เพิ่มเมนูอาหารของร้าน'}
         </h2>
 
         {storeSuspended && (
@@ -466,7 +472,7 @@ const handleCropSave = async () => {
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="อธิบายเพิ่มเติมเกี่ยวกับเมนู"
+              placeholder="อธิบายเพิ่มเติมเกี่ยวกับเมนูนี้ของร้านคุณ"
               className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#00b14f]"
               disabled={storeSuspended}
             />
@@ -474,11 +480,12 @@ const handleCropSave = async () => {
 
           {/* Upload รูป */}
         <div className="space-y-1">
-          <label className="block text-sm font-medium">อัปโหลดรูป</label>
+          <label className="block text-sm font-medium">อัปโหลดรูปเมนูของคุณ</label>
           <input
+            ref={fileInputRef}
             type="file"
             accept="image/*"
-            onChange={handleFileChange}   // เรียกฟังก์ชัน handleFileChange
+            onChange={handleFileChange}
             className="w-full"
             disabled={storeSuspended}
           />
@@ -497,10 +504,10 @@ const handleCropSave = async () => {
             <button
               type="button"
               onClick={() => setShowCropper(true)}  // เปิด modal ครอปรูป
-              className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+              className="px-2 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
               disabled={storeSuspended}
             >
-              แก้ไขรูปเดิม
+              แก้ไขรูปภาพ
             </button>
           </div>
         )}
@@ -510,29 +517,29 @@ const handleCropSave = async () => {
 
           {/* Add-ons */}
           <div className="space-y-2 border-t pt-4">
-            <h3 className="text-sm font-semibold text-gray-700 mb-2">Add-ons</h3>
+            <h3 className="text-sm font-semibold text-gray-700 mb-2">เพิ่มAdd-onของเมนู</h3>
 
-            <div className="flex gap-2 mb-2">
+            <div className="flex gap-1 mb-2">
               <input
                 type="text"
-                placeholder="ชื่อ Add-on"
+                placeholder="เช่น พิเศษเพิ่มหมูแดง"
                 value={newAddOnName}
                 onChange={(e) => setNewAddOnName(e.target.value)}
-                className="border px-2 py-1 rounded w-32"
+                className="border px-2 py-1 rounded-lg w-full"
                 disabled={storeSuspended}
               />
               <input
                 type="number"
-                placeholder="ราคา"
+                placeholder="ใส่ราคา"
                 value={newAddOnPrice}
                 onChange={(e) => setNewAddOnPrice(e.target.value)}
-                className="border px-2 py-1 rounded w-20"
+                className="border px-2 py-1 rounded-lg w-24"
                 disabled={storeSuspended}
               />
               <button
                 type="button"
                 onClick={handleAddAddOn}
-                className="bg-[#00b14f] text-white px-3 rounded"
+                className="bg-[#00b14f] text-white px-5 rounded"
                 disabled={storeSuspended}
               >
                 {editAddOnId ? 'อัปเดต' : 'เพิ่ม'}
@@ -573,7 +580,7 @@ const handleCropSave = async () => {
           </div>
 
           {/* ปุ่ม */}
-          <div className="pt-4 flex gap-4">
+          <div className="pt-2 flex gap-3">
             <button
               onClick={handleUpload}
               disabled={isSaving || storeSuspended || (!!editId && !isDirty)}
@@ -599,7 +606,7 @@ const handleCropSave = async () => {
       {showCropper && previewUrl && (
       <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
         <div className="bg-white rounded-lg p-6 shadow-xl w-[90%] max-w-lg">
-          <h2 className="text-lg font-semibold mb-4">ครอปรูป</h2>
+          <h2 className="text-lg font-semibold mb-4 text-center">แก้ไขรูปภาพของคุณ</h2>
 
           <div className="relative w-full h-48 bg-gray-100">
             <Cropper
@@ -649,12 +656,12 @@ const handleCropSave = async () => {
 
       {/* การ์ดย่อย 2: รายการเมนู */}
       <div className="bg-gray-50 rounded-xl shadow-inner p-4 md:p-6 space-y-2">
-        <h2 className="text-lg font-bold text-gray-800">รายการเมนู</h2>
+        <h2 className="text-lg font-bold text-gray-800">รายการเมนูอาหารของร้าน</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {isLoading ? (
             <p className="text-center text-gray-500 col-span-full">กำลังโหลดเมนู...</p>
           ) : menus.length === 0 ? (
-            <p className="text-center text-gray-500 col-span-full">ตอนนี้ร้านยังไม่ได้เพิ่มเมนู</p>
+            <p className="text-center text-gray-500 col-span-full">ตอนนี้ร้านยังไม่ได้เพิ่มรายการเมนูอาหารเมนู</p>
           ) : (
             menus.map((menu) => (
               <div
@@ -706,7 +713,5 @@ const handleCropSave = async () => {
     </div>
   </div>
 );
-
-
 
 }
