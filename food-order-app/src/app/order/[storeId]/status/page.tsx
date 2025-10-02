@@ -44,7 +44,6 @@ export default function OrderStatusPage() {
   const [message, setMessage] = useState('');
   const [activeTables, setActiveTables] = useState<number[] | null>(null);
 
-  // ดึงเลขโต๊ะที่มีออร์เดอร์จริง
   useEffect(() => {
     const fetchActiveTables = async () => {
       try {
@@ -127,7 +126,6 @@ export default function OrderStatusPage() {
     }
   };
 
-    // Polling ทุก 10 วินาที
   useEffect(() => {
     if (!identifier.trim()) return;
 
@@ -135,9 +133,8 @@ export default function OrderStatusPage() {
       fetchOrderStatus();
     }, 10000); 
 
-    return () => clearInterval(interval); // ล้างเมื่อ component unmount
+    return () => clearInterval(interval);
   }, [identifier, storeId]);
-
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -231,7 +228,12 @@ export default function OrderStatusPage() {
                       {currentStatus?.icon} {currentStatus?.label || order.status}
                     </p>
 
-                    <p className="mt-1 text-gray-700 font-medium">{getQueueTime(order.queueNumber)}</p>
+                    {/* แก้ตรงนี้ ให้แสดงข้อความเสร็จสิ้นเมื่อ delivered */}
+                    <p className="mt-1 text-gray-700 font-medium">
+                      {order.status === 'delivered'
+                        ? 'คิวของคุณเสร็จสิ้นแล้ว'
+                        : getQueueTime(order.queueNumber)}
+                    </p>
 
                     <ul className="list-disc pl-6 text-gray-900 mt-0">
                       {order.items.map((item, idx) => (
@@ -268,7 +270,6 @@ export default function OrderStatusPage() {
         </div>
       </div>
 
-      {/* Animation */}
       <style jsx>{`
         .animate-slide-in {
           animation: slideIn 0.4s ease-out;
