@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 import toast, { Toaster } from 'react-hot-toast';
+import { Receipt } from "lucide-react";
 import * as XLSX from 'xlsx';
 import {
   FiCheckCircle,
@@ -68,7 +69,9 @@ export default function DashboardOrdersPage() {
   const [showSummary, setShowSummary] = useState(false);
   const [graphType, setGraphType] = useState<'line' | 'bar'>('line');
   const [showMobileMenu, setShowMobileMenu] = useState(false);
-  
+  const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
+
+
 
   useEffect(() => {
     fetchStoreInfo();
@@ -86,47 +89,47 @@ export default function DashboardOrdersPage() {
   };
 
   const fetchOrders = async (isPolling = false) => {
-  try {
-    const res = await axios.get('/api/order/list', { withCredentials: true });
-    const newOrders: Order[] = res.data.orders || [];
+    try {
+      const res = await axios.get('/api/order/list', { withCredentials: true });
+      const newOrders: Order[] = res.data.orders || [];
 
-    // เปรียบเทียบถ้ามีการเปลี่ยนแปลงเท่านั้น
-    const isDifferent = JSON.stringify(newOrders) !== JSON.stringify(orders);
-    if (isDifferent) {
-      setOrders(newOrders);
+      // เปรียบเทียบถ้ามีการเปลี่ยนแปลงเท่านั้น
+      const isDifferent = JSON.stringify(newOrders) !== JSON.stringify(orders);
+      if (isDifferent) {
+        setOrders(newOrders);
+      }
+    } catch (err) {
+      console.error('เกิดข้อผิดพลาดในการโหลดออเดอร์', err);
     }
-  } catch (err) {
-    console.error('เกิดข้อผิดพลาดในการโหลดออเดอร์', err);
-  }
-};
+  };
 
   const updateStatus = async (orderId: string, newStatus: string) => {
-  if (isSuspended || updatingOrderId) return;
-  setUpdatingOrderId(orderId);
-  try {
-    const res = await axios.put('/api/order/updateStatus', { orderId, status: newStatus });
-    if (res.data.success) {
-      // อัปเดตเฉพาะ order ใน state
-      setOrders(prev =>
-        prev.map(order =>
-          order._id === orderId ? { ...order, status: newStatus } : order
-        )
-      );
-      toast.success(`อัปเดตสถานะเป็น "${STATUS_LIST.find(s => s.key === newStatus)?.label}" เรียบร้อย`);
-    } else {
-      toast.error(res.data.message || 'อัปเดตสถานะล้มเหลว');
+    if (isSuspended || updatingOrderId) return;
+    setUpdatingOrderId(orderId);
+    try {
+      const res = await axios.put('/api/order/updateStatus', { orderId, status: newStatus });
+      if (res.data.success) {
+        // อัปเดตเฉพาะ order ใน state
+        setOrders(prev =>
+          prev.map(order =>
+            order._id === orderId ? { ...order, status: newStatus } : order
+          )
+        );
+        toast.success(`อัปเดตสถานะเป็น "${STATUS_LIST.find(s => s.key === newStatus)?.label}" เรียบร้อย`);
+      } else {
+        toast.error(res.data.message || 'อัปเดตสถานะล้มเหลว');
+      }
+    } catch (error: any) {
+      if (error.response?.status === 403) {
+        toast.error('ร้านถูกระงับ ไม่สามารถอัปเดตสถานะออเดอร์ได้');
+        setIsSuspended(true);
+      } else {
+        toast.error('เกิดข้อผิดพลาดในการอัปเดตสถานะ');
+        console.error(error);
+      }
     }
-  } catch (error: any) {
-    if (error.response?.status === 403) {
-      toast.error('ร้านถูกระงับ ไม่สามารถอัปเดตสถานะออเดอร์ได้');
-      setIsSuspended(true);
-    } else {
-      toast.error('เกิดข้อผิดพลาดในการอัปเดตสถานะ');
-      console.error(error);
-    }
-  }
-  setUpdatingOrderId(null);
-};
+    setUpdatingOrderId(null);
+  };
 
 
   const deleteOrder = (orderId: string) => {
@@ -185,35 +188,35 @@ export default function DashboardOrdersPage() {
 
   // ฟังก์ชันกรอง paid orders ตาม filter
   const filterPaidOrdersByTime = (orders: Order[], filter: PaidTimeFilter) => {
-  return orders.filter((o) => {
-    const orderDate = new Date(o.createdAt);
+    return orders.filter((o) => {
+      const orderDate = new Date(o.createdAt);
 
-    if (filter === 'day') {
-      if (!selectedDate) return true;
-      const selected = new Date(selectedDate);
-      return orderDate.toDateString() === selected.toDateString();
-    }
+      if (filter === 'day') {
+        if (!selectedDate) return true;
+        const selected = new Date(selectedDate);
+        return orderDate.toDateString() === selected.toDateString();
+      }
 
-    if (filter === 'week') {
-      if (!startDate) return true;
-      const [yearStr, weekStr] = startDate.split('-W');
-      const year = parseInt(yearStr);
-      const week = parseInt(weekStr);
-      const firstDayOfWeek = new Date(year, 0, 1 + (week - 1) * 7);
-      const lastDayOfWeek = new Date(firstDayOfWeek);
-      lastDayOfWeek.setDate(firstDayOfWeek.getDate() + 6);
-      return orderDate >= firstDayOfWeek && orderDate <= lastDayOfWeek;
-    }
+      if (filter === 'week') {
+        if (!startDate) return true;
+        const [yearStr, weekStr] = startDate.split('-W');
+        const year = parseInt(yearStr);
+        const week = parseInt(weekStr);
+        const firstDayOfWeek = new Date(year, 0, 1 + (week - 1) * 7);
+        const lastDayOfWeek = new Date(firstDayOfWeek);
+        lastDayOfWeek.setDate(firstDayOfWeek.getDate() + 6);
+        return orderDate >= firstDayOfWeek && orderDate <= lastDayOfWeek;
+      }
 
-    if (filter === 'month') {
-      if (!selectedDate) return true;
-      const [year, month] = selectedDate.split('-').map(Number);
-      return orderDate.getFullYear() === year && orderDate.getMonth() === month - 1;
-    }
+      if (filter === 'month') {
+        if (!selectedDate) return true;
+        const [year, month] = selectedDate.split('-').map(Number);
+        return orderDate.getFullYear() === year && orderDate.getMonth() === month - 1;
+      }
 
-    return true;
-  });
-};
+      return true;
+    });
+  };
 
 
   const filterByTimeRange = (orders: Order[]) => {
@@ -248,13 +251,25 @@ export default function DashboardOrdersPage() {
   };
 
   const filteredOrders = showPaidOrders
-  ? !showSummary
-    ? filterPaidOrdersByTime(orders.filter(o => o.status === 'paid'), paidTimeFilter)
-    : filterByTimeRange(orders.filter(o => o.status === 'paid'))
-  : orders.filter(o => !['paid'].includes(o.status));
+    ? !showSummary
+      ? filterPaidOrdersByTime(orders.filter(o => o.status === 'paid'), paidTimeFilter)
+      : filterByTimeRange(orders.filter(o => o.status === 'paid'))
+    : orders.filter(o => !['paid'].includes(o.status));
   const sortedOrders = [...filteredOrders].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   const totalRevenue = sortedOrders.reduce((sum, o) => sum + o.totalPrice, 0);
   const totalCount = sortedOrders.length;
+
+  // หลังจากสร้าง sortedOrders แล้ว
+  let filteredOrdersByStatus = sortedOrders;
+
+if (selectedStatus) {
+  if (selectedStatus === 'callbill') {
+    filteredOrdersByStatus = sortedOrders.filter(o => o.isCallBill && o.status !== 'paid');
+  } else {
+    filteredOrdersByStatus = sortedOrders.filter(o => o.status === selectedStatus);
+  }
+}
+
 
   // ฟังก์ชัน generate ข้อมูลกราฟรวมยอดขายเมนู
   const generateGraphData = (orders: Order[]) => {
@@ -314,17 +329,17 @@ export default function DashboardOrdersPage() {
 
     XLSX.writeFile(wb, fileName);
   };
-  
+
   useEffect(() => {
-  fetchOrders(); // โหลดครั้งแรก
-  const interval = setInterval(() => fetchOrders(true), 15000); // polling ทุก 15 วิ
-  return () => clearInterval(interval);
-}, []);
+    fetchOrders(); // โหลดครั้งแรก
+    const interval = setInterval(() => fetchOrders(true), 15000); // polling ทุก 15 วิ
+    return () => clearInterval(interval);
+  }, []);
 
 
   return (
-  <div className="flex h-screen  bg-gray-50">
-    <Toaster
+    <div className="flex h-screen  bg-gray-50">
+      <Toaster
         position="top-center"
         toastOptions={{
           duration: 3000,
@@ -350,64 +365,64 @@ export default function DashboardOrdersPage() {
         }}
       />
 
-    {/* Navbar */}
-    <div className="flex items-center justify-between bg-green-400 text-gray-900 px-4 h-16 shadow-md fixed top-0 left-0 right-0 z-50">
-      <div className="flex items-center gap-2">
-        {/* ปุ่มมือถือ */}
-        <button
-          className="md:hidden px-2 py-1 bg-white text-gray-900 rounded-lg shadow"
-          onClick={() => setShowMobileMenu(!showMobileMenu)}
-        >
-          ☰
-        </button>
+      {/* Navbar */}
+      <div className="flex items-center justify-between bg-green-400 text-gray-900 px-4 h-16 shadow-md fixed top-0 left-0 right-0 z-50">
+        <div className="flex items-center gap-2">
+          {/* ปุ่มมือถือ */}
+          <button
+            className="md:hidden px-2 py-1 bg-white text-gray-900 rounded-lg shadow"
+            onClick={() => setShowMobileMenu(!showMobileMenu)}
+          >
+            ☰
+          </button>
 
-        <h1 className="text-xl font-bold">จัดการออเดอร์</h1>
+          <h1 className="text-xl font-bold">จัดการออเดอร์</h1>
+        </div>
+
+        {/* เมนูมือถือ */}
+        {showMobileMenu && (
+          <div className="absolute top-16 left-4 bg-white shadow-lg rounded-xl p-3 flex flex-col gap-2 w-48 z-50 md:hidden">
+            <button
+              className="px-3 py-2 bg-gray-100 rounded-lg hover:bg-gray-200"
+              onClick={() => { setShowPaidOrders(false); fetchOrders(); setShowMobileMenu(false); }}
+            >
+              ดูออเดอร์ที่ยังไม่เสร็จ
+            </button>
+            <button
+              className="px-3 py-2 bg-gray-100 rounded-lg hover:bg-gray-200"
+              onClick={() => { setShowPaidOrders(true); fetchOrders(); setShowMobileMenu(false); }}
+            >
+              ดูออเดอร์ที่เสร็จสิ้น
+            </button>
+            {/* เพิ่มลิงก์อื่น ๆ ได้ตามต้องการ */}
+          </div>
+        )}
       </div>
 
-      {/* เมนูมือถือ */}
-      {showMobileMenu && (
-        <div className="absolute top-16 left-4 bg-white shadow-lg rounded-xl p-3 flex flex-col gap-2 w-48 z-50 md:hidden">
+      {/* Sidebar */}
+      <div className="hidden md:flex fixed top-0 left-0 z-40 w-64 h-screen bg-green-100 shadow-lg mt-16">
+        <nav className="w-full md:w-64 bg-green-100 text-gray-900 flex md:flex-col flex-row p-2 md:p-4 gap-2 md:gap-4 overflow-x-auto md:overflow-auto">
           <button
-            className="px-3 py-2 bg-gray-100 rounded-lg hover:bg-gray-200"
-            onClick={() => { setShowPaidOrders(false); fetchOrders(); setShowMobileMenu(false); }}
+            onClick={() => { setShowPaidOrders(false); fetchOrders(); }}
+            className={`flex-1 md:flex-none p-2 md:p-3 rounded-lg text-left border border-gray-300 shadow-sm 
+            ${!showPaidOrders ? 'bg-green-600 text-white shadow-lg' : 'bg-green-100 hover:bg-green-200 text-gray-700'}`}
           >
             ดูออเดอร์ที่ยังไม่เสร็จ
           </button>
           <button
-            className="px-3 py-2 bg-gray-100 rounded-lg hover:bg-gray-200"
-            onClick={() => { setShowPaidOrders(true); fetchOrders(); setShowMobileMenu(false); }}
+            onClick={() => { setShowPaidOrders(true); fetchOrders(); }}
+            className={`flex-1 md:flex-none p-2 md:p-3 rounded-lg text-left border border-gray-300 shadow-sm
+            ${showPaidOrders ? 'bg-green-600 text-white shadow-lg' : 'bg-green-100 hover:bg-green-200 text-gray-700'}`}
           >
             ดูออเดอร์ที่เสร็จสิ้น
           </button>
-          {/* เพิ่มลิงก์อื่น ๆ ได้ตามต้องการ */}
-        </div>
-      )}
-    </div>
-
-    {/* Sidebar */}
-    <div className="hidden md:flex fixed top-0 left-0 z-40 w-64 h-screen bg-green-100 shadow-lg mt-16">
-      <nav className="w-full md:w-64 bg-green-100 text-gray-900 flex md:flex-col flex-row p-2 md:p-4 gap-2 md:gap-4 overflow-x-auto md:overflow-auto">
-        <button
-          onClick={() => { setShowPaidOrders(false); fetchOrders(); }}
-          className={`flex-1 md:flex-none p-2 md:p-3 rounded-lg text-left border border-gray-300 shadow-sm 
-            ${!showPaidOrders ? 'bg-green-600 text-white shadow-lg' : 'bg-green-100 hover:bg-green-200 text-gray-700'}`}
-        >
-          ดูออเดอร์ที่ยังไม่เสร็จ
-        </button>
-        <button
-          onClick={() => { setShowPaidOrders(true); fetchOrders(); }}
-          className={`flex-1 md:flex-none p-2 md:p-3 rounded-lg text-left border border-gray-300 shadow-sm
-            ${showPaidOrders ? 'bg-green-600 text-white shadow-lg' : 'bg-green-100 hover:bg-green-200 text-gray-700'}`}
-        >
-          ดูออเดอร์ที่เสร็จสิ้น
-        </button>
-      </nav>
-    </div>
+        </nav>
+      </div>
 
 
-    {/* Main Content */}
-    <div className="flex-1 flex flex-col ml-0 md:ml-64"> 
-      <main className="flex-1 overflow-y-auto p-4 mt-16">
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col ml-0 md:ml-64">
+        <main className="flex-1 overflow-y-auto p-4 mt-16">
           {/* การ์ดรวม content */}
           <div className="bg-white rounded-2xl shadow-lg p-6 space-y-6">
             {/* เลือกช่วงเวลาออเดอร์ */}
@@ -462,7 +477,7 @@ export default function DashboardOrdersPage() {
                   onClick={() => setShowSummary(true)}
                   className="px-2 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
                 >
-                  ดูสรุปทั้งหมด / กราฟ
+                  ดูกราฟยอดขาย
                 </button>
                 <button
                   onClick={() => downloadExcel(filteredOrders, `Order_Summary_${paidTimeFilter}.xlsx`)}
@@ -472,143 +487,183 @@ export default function DashboardOrdersPage() {
                 </button>
               </div>
 
-              )}
-
-              {/* กราฟสรุป */}
-              {showPaidOrders && showSummary && (
-                <div className="bg-gray-50 p-4 rounded-md shadow-sm w-full text-gray-900">
-                  <div className="flex flex-wrap items-center gap-4 mb-4">
-                    <label>ดูกราฟ:</label>
-                    <select
-                      className="border px-3 py-2 rounded-md text-gray-900"
-                      onChange={(e) => { 
-                        const value = e.target.value as 'day' | 'week' | 'month';
-                        setTimeRange(value);
-                        setSelectedDate('');
-                        setStartDate('');
-                        setEndDate('');
-                      }}
-                      value={timeRange}
-                    >
-                      <option value="day">รายวัน</option>
-                      <option value="week">รายสัปดาห์</option>
-                      <option value="month">รายเดือน</option>
-                    </select>
-
-                    <label>ชนิดกราฟ:</label>
-                    <select
-                      className="border px-3 py-2 rounded-md text-gray-900"
-                      value={graphType}
-                      onChange={(e) => setGraphType(e.target.value as 'line' | 'bar')}
-                    >
-                      <option value="line">กราฟเส้น</option>
-                      <option value="bar">กราฟแท่ง</option>
-                    </select>
-
-                    {/* ตัวเลือกวัน/สัปดาห์/เดือน */}
-                    {timeRange === 'day' && (
-                      <input
-                        type="date"
-                        className="border px-3 py-2 rounded-md text-gray-900"
-                        value={selectedDate}
-                        onChange={(e) => setSelectedDate(e.target.value)}
-                      />
-                    )}
-                    {timeRange === 'week' && (
-                      <input
-                        type="week"
-                        className="border px-3 py-2 rounded-md text-gray-900"
-                        value={startDate}
-                        onChange={(e) => setStartDate(e.target.value)}
-                      />
-                    )}
-                    {timeRange === 'month' && (
-                      <input
-                        type="month"
-                        className="border px-3 py-2 rounded-md text-gray-900"
-                        value={selectedDate}
-                        onChange={(e) => setSelectedDate(e.target.value)}
-                      />
-                    )}
-
-                    <button
-                      onClick={() => setShowSummary(false)}
-                      className="px-3 py-2 bg-gray-300 rounded-md hover:bg-gray-400 text-gray-900"
-                    >
-                      ย้อนกลับ
-                    </button>
-                  </div>
-
-                  <div style={{ width: '100%', height: 300 }}>
-                    <ResponsiveContainer>
-                      {graphType === 'line' ? (
-                        <LineChart data={graphData}>
-                          <Line type="monotone" dataKey="revenue" stroke="#4f46e5" strokeWidth={2} name="ยอดขาย (บาท)" />
-                          <Line type="monotone" dataKey="itemsSold" stroke="#f59e0b" strokeWidth={2} name="จำนวนชิ้นที่ขาย" />
-                          <CartesianGrid stroke="#ccc" strokeDasharray="5 5" />
-                          <XAxis dataKey="date" stroke="#1f2937" />
-                          <YAxis stroke="#1f2937" />
-                          <Tooltip />
-                          <Legend verticalAlign="top" height={36} />
-                        </LineChart>
-                      ) : (
-                        <BarChart data={graphData}>
-                          <CartesianGrid stroke="#ccc" strokeDasharray="5 5" />
-                          <XAxis dataKey="date" stroke="#1f2937" />
-                          <YAxis stroke="#1f2937" />
-                          <Tooltip />
-                          <Legend verticalAlign="top" height={36} />
-                          <Bar dataKey="revenue" fill="#4f46e5" name="ยอดขาย (บาท)" />
-                          <Bar dataKey="itemsSold" fill="#f59e0b" name="จำนวนชิ้นที่ขาย" />
-                        </BarChart>
-                      )}
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-              )}
-          {/* สรุปจำนวน/ยอดรวม */}
-          {showPaidOrders && !showSummary && (
-            <div className="bg-indigo-50 p-4 rounded-lg shadow-sm flex justify-around text-base font-semibold text-gray-700">
-              <p>จำนวนออเดอร์: <span className="font-bold">{totalCount}</span></p>
-              <p>ยอดรวม: <span className="font-bold">{totalRevenue.toLocaleString()} บาท</span></p>
-            </div>
-          )}
-
-          {/* Orders List */}
-          <>
-            {/* ถ้าไม่มีออเดอร์ */}
-            {sortedOrders.length === 0 && (
-              <p className="text-center text-gray-600 text-lg mt-12">ไม่มีออเดอร์ในรายการนี้</p>
             )}
 
-            {/* คิวและเช็คบิล (ถ้าไม่ใช่ paid) */}
-            {!showPaidOrders && sortedOrders.length > 0 && (
-              <div className="flex justify-end mb-4 space-x-4 flex-wrap">
-                {/* คิวปกติ */}
-                <div className="bg-red-100 text-red-700 font-bold px-4 py-2 rounded-lg shadow">
-                  คิวที่เหลือ: {orders.filter(o => ['pending','accepted','preparing','finished','delivering'].includes(o.status)).length}
+            {/* กราฟสรุป */}
+            {showPaidOrders && showSummary && (
+              <div className="bg-gray-50 p-4 rounded-md shadow-sm w-full text-gray-900">
+                <div className="flex flex-wrap items-center gap-4 mb-4">
+                  <label>ดูกราฟ:</label>
+                  <select
+                    className="border px-3 py-2 rounded-md text-gray-900"
+                    onChange={(e) => {
+                      const value = e.target.value as 'day' | 'week' | 'month';
+                      setTimeRange(value);
+                      setSelectedDate('');
+                      setStartDate('');
+                      setEndDate('');
+                    }}
+                    value={timeRange}
+                  >
+                    <option value="day">รายวัน</option>
+                    <option value="week">รายสัปดาห์</option>
+                    <option value="month">รายเดือน</option>
+                  </select>
+
+                  <label>ชนิดกราฟ:</label>
+                  <select
+                    className="border px-3 py-2 rounded-md text-gray-900"
+                    value={graphType}
+                    onChange={(e) => setGraphType(e.target.value as 'line' | 'bar')}
+                  >
+                    <option value="line">กราฟเส้น</option>
+                    <option value="bar">กราฟแท่ง</option>
+                  </select>
+
+                  {/* ตัวเลือกวัน/สัปดาห์/เดือน */}
+                  {timeRange === 'day' && (
+                    <input
+                      type="date"
+                      className="border px-3 py-2 rounded-md text-gray-900"
+                      value={selectedDate}
+                      onChange={(e) => setSelectedDate(e.target.value)}
+                    />
+                  )}
+                  {timeRange === 'week' && (
+                    <input
+                      type="week"
+                      className="border px-3 py-2 rounded-md text-gray-900"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                    />
+                  )}
+                  {timeRange === 'month' && (
+                    <input
+                      type="month"
+                      className="border px-3 py-2 rounded-md text-gray-900"
+                      value={selectedDate}
+                      onChange={(e) => setSelectedDate(e.target.value)}
+                    />
+                  )}
+
+                  <button
+                    onClick={() => setShowSummary(false)}
+                    className="px-3 py-2 bg-gray-300 rounded-md hover:bg-gray-400 text-gray-900"
+                  >
+                    ย้อนกลับ
+                  </button>
                 </div>
 
-                {/* มีลูกค้าเรียกเช็คบิล */}
-                <div className="bg-yellow-100 text-yellow-800 font-bold px-4 py-2 rounded-lg shadow">
-                  มีโต๊ะเรียกเช็คบิล: {orders.filter(o => o.isCallBill && !['paid'].includes(o.status)).length}
+                <div style={{ width: '100%', height: 300 }}>
+                  <ResponsiveContainer>
+                    {graphType === 'line' ? (
+                      <LineChart data={graphData}>
+                        <Line
+                          type="monotone"
+                          dataKey="revenue"
+                          stroke="#4f46e5"
+                          strokeWidth={2}
+                          name="ยอดขาย (บาท)"
+                        />
+                        <CartesianGrid stroke="#ccc" strokeDasharray="5 5" />
+                        <XAxis dataKey="date" stroke="#1f2937" />
+                        <YAxis stroke="#1f2937" />
+                        <Tooltip />
+                        <Legend verticalAlign="top" height={36} />
+                      </LineChart>
+                    ) : (
+                      <BarChart data={graphData}>
+                        <CartesianGrid stroke="#ccc" strokeDasharray="5 5" />
+                        <XAxis dataKey="date" stroke="#1f2937" />
+                        <YAxis stroke="#1f2937" />
+                        <Tooltip />
+                        <Legend verticalAlign="top" height={36} />
+                        <Bar dataKey="revenue" fill="#4f46e5" name="ยอดขาย (บาท)" />
+                      </BarChart>
+                    )}
+                  </ResponsiveContainer>
                 </div>
               </div>
             )}
+            {/* สรุปจำนวน/ยอดรวม */}
+            {showPaidOrders && !showSummary && (
+              <div className="bg-indigo-50 p-4 rounded-lg shadow-sm flex justify-around text-base font-semibold text-gray-700">
+                <p>จำนวนออเดอร์: <span className="font-bold">{totalCount}</span></p>
+                <p>ยอดรวม: <span className="font-bold">{totalRevenue.toLocaleString()} บาท</span></p>
+              </div>
+            )}
+
+            {/* Status Overview */}
+            
+            {!showPaidOrders && (
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(120px,1fr))] gap-2 mb-3 w-full">
+                {STATUS_LIST.filter(s => s.key !== 'paid').map(status => {
+                  const count = orders.filter(o => o.status === status.key).length;
+                  const isActive = selectedStatus === status.key;
+                  return (
+                    <div
+                      key={status.key}
+                      onClick={() => setSelectedStatus(isActive ? null : status.key)} // toggle
+                      className={`flex flex-col items-center justify-center p-3 rounded-lg text-base font-medium cursor-pointer text-center shadow-sm hover:shadow-md transition
+            ${status.colorClass}
+            ${isActive ? 'ring-2 ring-indigo-500' : ''}
+          `}
+                    >
+                      <div className="text-lg mb-1">{status.icon}</div>
+                      <div className="text-sm sm:text-base">{status.label}</div>
+                      <div className="text-xl font-bold">{count}</div>
+                    </div>
+                  );
+                })}
+
+                {/* กล่อง "เรียกเช็คบิล" */}
+<div
+  onClick={() => setSelectedStatus(selectedStatus === 'callbill' ? null : 'callbill')} // toggle
+  className={`flex flex-col items-center justify-center p-3 rounded-lg text-base font-medium cursor-pointer text-center shadow-sm hover:shadow-md transition
+    ${selectedStatus === 'callbill' ? 'ring-2 ring-indigo-500' : ''}
+    bg-yellow-200 text-yellow-800 hover:bg-yellow-300`}
+>
+  <Receipt className="w-6 h-6 mb-1" />
+  <div className="text-sm sm:text-base">เรียกเช็คบิล</div>
+  <div className="text-xl font-bold">
+    {orders.filter(o => o.isCallBill && o.status !== 'paid').length}
+  </div>
+</div>
+
+              </div>
+            )}
+
+
+            {/* Orders List */}
+            <>
+              {/* ถ้าไม่มีออเดอร์ */}
+              {sortedOrders.length === 0 && (
+                <p className="text-center text-gray-600 text-lg mt-12">ไม่มีออเดอร์ในรายการนี้</p>
+              )}
+
+              {/* คิวและเช็คบิล (ถ้าไม่ใช่ paid) */}
+              {!showPaidOrders && sortedOrders.length > 0 && (
+                <div className="flex justify-end mb-4 space-x-4 flex-wrap">
+                  {/* คิวปกติ */}
+                  <div className="bg-red-100 text-red-700 font-bold px-4 py-2 rounded-lg shadow">
+                    คิวที่เหลือ: {orders.filter(o => ['pending', 'accepted', 'preparing', 'finished', 'delivering'].includes(o.status)).length}
+                  </div>
+                </div>
+              )}
 
               {(() => {
-                // ✅ สร้าง queue ใหม่เฉพาะออเดอร์ที่ยังไม่ paid
-                const activeOrders = sortedOrders.filter(o =>
-                  ['pending','accepted','preparing','finished','delivering'].includes(o.status)
-                );
+  // สร้าง queue ใหม่เฉพาะออเดอร์ที่ยังไม่ paid
+  const activeOrders = filteredOrdersByStatus.filter(o =>
+    ['pending', 'accepted', 'preparing', 'finished', 'delivering'].includes(o.status)
+  );
 
-                const ordersWithDisplayQueue = sortedOrders.map(o => {
-                  if (o.status === 'paid') {
-                    return { ...o, displayQueue: null };
-                  }
-                  const idx = activeOrders.findIndex(a => a._id === o._id);
-                  return { ...o, displayQueue: idx + 1 };
-                });
+  const ordersWithDisplayQueue = filteredOrdersByStatus.map(o => {
+    if (!['pending', 'accepted', 'preparing', 'finished', 'delivering'].includes(o.status)) {
+      return { ...o, displayQueue: null };
+    }
+    const idx = activeOrders.findIndex(a => a._id === o._id);
+    return { ...o, displayQueue: idx + 1 };
+  });
 
                 return (
                   <div className="space-y-6">
@@ -616,14 +671,14 @@ export default function DashboardOrdersPage() {
                       <div
                         key={order._id}
                         className={`rounded-lg shadow-md border p-5 relative
-                          ${
-                            !showPaidOrders && order.isCallBill
-                              ? 'bg-orange-50 border-orange-500'
-                              : order.status === 'delivered'
+                          ${!showPaidOrders && order.isCallBill
+                            ? 'bg-yellow-50 border-orange-500'
+                            : order.status === 'delivered'
                               ? 'bg-green-50 border-green-500'
                               : 'bg-white border-gray-200'
                           }`}
                       >
+
                         {/* ข้อมูลลูกค้า / โต๊ะ */}
                         <div className="flex justify-between items-start mb-4 flex-wrap gap-3">
                           <div>
@@ -684,7 +739,7 @@ export default function DashboardOrdersPage() {
                             </li>
                           ))}
                         </ul>
-                        
+
                         {/* ปุ่มเปลี่ยนสถานะ */}
                         {!showPaidOrders && (
                           <div className="flex flex-wrap gap-3">
@@ -697,8 +752,8 @@ export default function DashboardOrdersPage() {
                                   ${order.status === status.key
                                     ? 'bg-green-300 text-gray-700 cursor-not-allowed'
                                     : isSuspended
-                                    ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                                    : 'bg-gray-100 text-gray-700 hover:bg-green-200'}
+                                      ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                                      : 'bg-gray-100 text-gray-700 hover:bg-green-200'}
                                   ${updatingOrderId === order._id ? 'opacity-50 cursor-not-allowed' : ''}`}
                               >
                                 {status.icon} {status.label}
@@ -722,9 +777,9 @@ export default function DashboardOrdersPage() {
                 );
               })()}
             </>
-        </div>
-      </main>
+          </div>
+        </main>
+      </div>
     </div>
-  </div>
-);
+  );
 }

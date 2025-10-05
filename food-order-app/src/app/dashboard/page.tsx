@@ -693,10 +693,10 @@ const downloadAllTableQRCodes = () => {
                     <button
                       onClick={() => toggleMenuAvailability(menu)}
                       className={`px-3 py-2 rounded-lg text-white text-sm md:text-base transition ${
-                        menu.isAvailable ? 'bg-green-600 hover:bg-green-700' : 'bg-yellow-500 hover:bg-yellow-600'
+                        menu.isAvailable ? 'bg-green-600 hover:bg-yellow-500' : 'bg-yellow-500 hover:bg-green-600'
                       }`}
                     >
-                      {menu.isAvailable ? 'เปลี่ยนเป็นไม่พร้อมขาย' : 'เปลี่ยนเป็นพร้อมขาย'}
+                      {menu.isAvailable ? 'ไม่แสดงเมนู' : 'แสดงเมนู'}
                       </button>
                     </li>
                   ))}
